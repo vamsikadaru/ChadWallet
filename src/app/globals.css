@@ -1,26 +1,262 @@
 @import "tailwindcss";
 
+/* ============================================================
+   DESIGN SYSTEM — tokens (implement once, reference everywhere)
+   ============================================================ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg-0: #0a0a0f; /* near-black base */
+  --bg-1: #111118; /* card surface */
+  --bg-2: #1a1a24; /* elevated surface */
+  --border: rgba(255, 255, 255, 0.06);
+  --border-bright: rgba(255, 255, 255, 0.12);
+
+  --accent: #9945ff; /* Solana purple */
+  --accent-2: #14f195; /* Solana green */
+  --danger: #ff4b4b;
+  --success: #14f195;
+
+  --text-1: #ffffff;
+  --text-2: rgba(255, 255, 255, 0.55);
+  --text-3: rgba(255, 255, 255, 0.3);
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
 }
 
+/* Expose tokens to Tailwind v4 utilities (bg-bg-1, text-text-2, etc.) */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-bg-0: var(--bg-0);
+  --color-bg-1: var(--bg-1);
+  --color-bg-2: var(--bg-2);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --color-text-1: var(--text-1);
+  --color-text-2: var(--text-2);
+  --color-text-3: var(--text-3);
+
+  --font-display: var(--font-syne), "Syne", sans-serif;
+  --font-body: var(--font-inter), "Inter", sans-serif;
+  --font-mono: var(--font-jetbrains), "JetBrains Mono", monospace;
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  border-color: var(--border);
+}
+
+html {
+  background: var(--bg-0);
+  color-scheme: dark;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg-0);
+  color: var(--text-1);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ---- Typography helpers ---- */
+.font-display {
+  font-family: var(--font-display);
+}
+.font-mono {
+  font-family: var(--font-mono);
+  font-feature-settings: "tnum" 1; /* tabular numbers for data */
+}
+.caps {
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+.hero-number {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+/* ---- Surfaces ---- */
+.glass {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  backdrop-filter: blur(12px);
+}
+
+/* ---- Focus rings (no default browser outlines) ---- */
+*:focus {
+  outline: none;
+}
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ---- Scrollbars ---- */
+.custom-scrollbar::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb {
+  background: var(--bg-2);
+  border-radius: var(--radius-pill);
+}
+.custom-scrollbar::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Hide scrollbar (hot strip / horizontal scrollers) */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+/* ============================================================
+   KEYFRAMES
+   ============================================================ */
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--bg-1) 25%,
+    var(--bg-2) 50%,
+    var(--bg-1) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite linear;
+  border-radius: var(--radius-sm);
+}
+
+/* Animated gradient orb behind sign-in card (CSS only) */
+@keyframes orb-drift {
+  0% {
+    transform: translate3d(-8%, -4%, 0) scale(1);
+  }
+  33% {
+    transform: translate3d(6%, 6%, 0) scale(1.1);
+  }
+  66% {
+    transform: translate3d(-4%, 8%, 0) scale(0.95);
+  }
+  100% {
+    transform: translate3d(-8%, -4%, 0) scale(1);
+  }
+}
+@keyframes orb-hue {
+  0%,
+  100% {
+    filter: blur(80px) hue-rotate(0deg);
+  }
+  50% {
+    filter: blur(90px) hue-rotate(40deg);
+  }
+}
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 30% 30%,
+    var(--accent) 0%,
+    var(--accent-2) 60%,
+    transparent 75%
+  );
+  filter: blur(80px);
+  opacity: 0.55;
+  animation:
+    orb-drift 18s ease-in-out infinite,
+    orb-hue 12s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* Live update pulse */
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(20, 241, 149, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(20, 241, 149, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(20, 241, 149, 0);
+  }
+}
+.live-dot {
+  animation: pulse-ring 2s infinite;
+}
+
+/* Checkmark stroke draw (deposit confirmation) */
+@keyframes draw-check {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes scale-pop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.06);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.check-circle {
+  animation: scale-pop 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.check-stroke {
+  stroke-dasharray: 48;
+  stroke-dashoffset: 48;
+  animation: draw-check 0.5s 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Buy gradient (purple -> green) */
+.btn-buy {
+  background: linear-gradient(100deg, var(--accent), var(--accent-2));
+}
+.btn-buy:hover {
+  filter: brightness(1.08);
+}
+
+/* Accessibility: respect reduced motion globally */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .orb {
+    animation: none;
+  }
 }

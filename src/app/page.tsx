@@ -1,65 +1,73 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import Link from "next/link";
+import { ArrowDownToLine, Compass } from "lucide-react";
+import { FadeIn } from "@/components/ui/motion";
+import SectionHeader from "@/components/ui/SectionHeader";
+import SectionBoundary from "@/components/SectionBoundary";
+import NetWorth from "@/components/portfolio/NetWorth";
+import HoldingsGrid from "@/components/portfolio/HoldingsGrid";
+import ActivityFeed from "@/components/ActivityFeed";
+import { usePortfolio } from "@/lib/usePortfolio";
+
+export default function PortfolioPage() {
+  const { loading, netWorth, change24h, series, holdings, activity } =
+    usePortfolio();
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <div className="space-y-8">
+      <FadeIn>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="caps">Portfolio</p>
+            <h1 className="font-display text-[28px] font-bold tracking-tight">
+              Overview
+            </h1>
+          </div>
+          <div className="flex items-center gap-2.5">
+            <Link
+              href="/deposit"
+              className="btn-buy flex h-11 items-center gap-2 rounded-[var(--radius-pill)] px-5 text-[14px] font-semibold text-white transition-[filter]"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+              <ArrowDownToLine size={16} />
+              Deposit
+            </Link>
+            <Link
+              href="/trending"
+              className="flex h-11 items-center gap-2 rounded-[var(--radius-pill)] border border-border bg-bg-1 px-5 text-[14px] font-medium text-text-1 transition-colors hover:border-[var(--border-bright)]"
             >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+              <Compass size={16} />
+              Explore
+            </Link>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      </FadeIn>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <FadeIn delay={0.05} className="lg:col-span-2">
+          <SectionBoundary label="net worth">
+            <NetWorth value={netWorth} change24h={change24h} baseSeries={series} />
+          </SectionBoundary>
+        </FadeIn>
+
+        <FadeIn delay={0.1} className="lg:col-span-1">
+          <SectionBoundary label="activity">
+            <div className="glass h-full p-6">
+              <SectionHeader title="Activity" action="View all" href="/activity" />
+              <div className="-mx-2 max-h-[320px] overflow-y-auto pr-1 custom-scrollbar">
+                <ActivityFeed activity={activity.slice(0, 8)} loading={loading} />
+              </div>
+            </div>
+          </SectionBoundary>
+        </FadeIn>
+      </div>
+
+      <FadeIn delay={0.15}>
+        <SectionBoundary label="holdings">
+          <SectionHeader title="Holdings" />
+          <HoldingsGrid holdings={holdings} loading={loading} />
+        </SectionBoundary>
+      </FadeIn>
     </div>
   );
 }
