@@ -3,7 +3,7 @@
 import { usePrivy } from "@privy-io/react-auth";
 import Sidebar from "./Sidebar";
 import BottomNav from "./BottomNav";
-import SignIn from "./SignIn";
+import Landing from "./Landing";
 
 function BootSplash() {
   return (
@@ -25,7 +25,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // `ready` is false during SSR and the first client render, so the boot
   // splash hydrates consistently — no client-only mount flag needed.
   if (!ready) return <BootSplash />;
-  if (!authenticated) return <SignIn />;
+  if (!authenticated) return <Landing />;
 
   return (
     <div className="min-h-screen">

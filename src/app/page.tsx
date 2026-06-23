@@ -11,8 +11,7 @@ import ActivityFeed from "@/components/ActivityFeed";
 import { usePortfolio } from "@/lib/usePortfolio";
 
 export default function PortfolioPage() {
-  const { loading, netWorth, change24h, series, holdings, activity } =
-    usePortfolio();
+  const { loading, netWorth, change24h, holdings, activity } = usePortfolio();
 
   return (
     <div className="space-y-8">
@@ -46,7 +45,7 @@ export default function PortfolioPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <FadeIn delay={0.05} className="lg:col-span-2">
           <SectionBoundary label="net worth">
-            <NetWorth value={netWorth} change24h={change24h} baseSeries={series} />
+            <NetWorth value={netWorth} change24h={change24h} loading={loading} />
           </SectionBoundary>
         </FadeIn>
 

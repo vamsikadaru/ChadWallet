@@ -18,6 +18,9 @@ const ENDPOINTS: Record<string, string> = {
   history_price: "/defi/history_price",
   token_overview: "/defi/token_overview",
   trades: "/defi/txs/token",
+  price: "/defi/price",
+  multi_price: "/defi/multi_price",
+  holder: "/defi/v3/token/holder",
 };
 
 function apiKey() {

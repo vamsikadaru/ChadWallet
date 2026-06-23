@@ -3,36 +3,39 @@
 import { useEffect, useState } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { useSolanaWallet } from "./solana";
-import {
-  MOCK_HOLDINGS,
-  MOCK_ACTIVITY,
-  mockNetWorth,
-  mockNetWorthSeries,
-} from "./mock";
+import { fetchHoldings, weightedChange24h } from "./holdings";
 import type { Activity, Holding } from "./types";
 
 interface PortfolioState {
   loading: boolean;
   netWorth: number;
   change24h: number;
-  series: number[];
   holdings: Holding[];
   activity: Activity[];
-  solBalance: number;
+  solPrice: number;
 }
 
 /**
- * Portfolio data. Uses the real embedded-wallet SOL balance when an RPC is
- * configured, and Supabase trade history when available — otherwise falls
- * back to representative demo data so the UI is always fully populated.
+ * Live portfolio data for the connected embedded wallet.
+ *
+ *   • Holdings + net worth come from the real on-chain balances (RPC) priced
+ *     with live Birdeye quotes — no mock fallback when a wallet is connected.
+ *   • 24h change is value-weighted across actual holdings.
+ *   • Activity is the wallet's Supabase trade history, valued at the live SOL
+ *     price (not a hardcoded constant).
+ *
+ * A brand-new wallet with no funds correctly reports $0 and an empty grid.
  */
 export function usePortfolio(): PortfolioState {
   const { authenticated } = usePrivy();
   const { address } = useSolanaWallet();
 
   const [loading, setLoading] = useState(true);
-  const [solBalance, setSolBalance] = useState(0);
-  const [activity, setActivity] = useState<Activity[]>(MOCK_ACTIVITY);
+  const [holdings, setHoldings] = useState<Holding[]>([]);
+  const [netWorth, setNetWorth] = useState(0);
+  const [change24h, setChange24h] = useState(0);
+  const [solPrice, setSolPrice] = useState(0);
+  const [activity, setActivity] = useState<Activity[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -43,23 +46,28 @@ export function usePortfolio(): PortfolioState {
         return;
       }
       const rpc = process.env.NEXT_PUBLIC_ALCHEMY_RPC_URL;
-      try {
-        if (rpc) {
-          const { Connection, PublicKey, LAMPORTS_PER_SOL } = await import(
-            "@solana/web3.js"
-          );
-          const conn = new Connection(rpc, "confirmed");
-          const lamports = await conn.getBalance(new PublicKey(address!));
-          if (active) setSolBalance(lamports / LAMPORTS_PER_SOL);
+
+      let livePrice = solPrice;
+      if (rpc) {
+        try {
+          const { holdings: hs, netWorth: nw, solPrice: sp } =
+            await fetchHoldings(address, rpc);
+          if (active) {
+            setHoldings(hs);
+            setNetWorth(nw);
+            setChange24h(weightedChange24h(hs));
+            if (sp) setSolPrice(sp);
+          }
+          livePrice = sp || livePrice;
+        } catch (e) {
+          console.error("holdings fetch failed", e);
         }
-      } catch (e) {
-        console.error("balance fetch failed", e);
       }
 
       try {
         const res = await fetch(`/api/trades?wallet_address=${address}`);
         const data = await res.json();
-        if (active && Array.isArray(data.trades) && data.trades.length) {
+        if (active && Array.isArray(data.trades)) {
           setActivity(
             data.trades.map(
               (t: {
@@ -72,9 +80,12 @@ export function usePortfolio(): PortfolioState {
               }): Activity => ({
                 id: t.id,
                 type: t.type,
-                token: { symbol: t.token_address.slice(0, 4), address: t.token_address },
+                token: {
+                  symbol: t.token_address.slice(0, 4),
+                  address: t.token_address,
+                },
                 amountToken: t.amount_token,
-                amountUsd: t.amount_sol * 168,
+                amountUsd: t.amount_sol * (livePrice || 0),
                 txHash: t.id,
                 timestamp: new Date(t.created_at).getTime(),
               })
@@ -94,19 +105,8 @@ export function usePortfolio(): PortfolioState {
       active = false;
       clearInterval(interval);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authenticated, address]);
 
-  // Net worth = demo holdings + real SOL balance contribution (illustrative).
-  const baseNet = mockNetWorth();
-  const netWorth = baseNet + solBalance * 168.42;
-
-  return {
-    loading,
-    netWorth,
-    change24h: 4.21,
-    series: mockNetWorthSeries(),
-    holdings: MOCK_HOLDINGS,
-    activity,
-    solBalance,
-  };
+  return { loading, netWorth, change24h, holdings, activity, solPrice };
 }

@@ -12,10 +12,11 @@ import SectionBoundary from "@/components/SectionBoundary";
 import { FadeIn } from "@/components/ui/motion";
 import TradePanel from "@/components/trade/TradePanel";
 import { LiveTrades, HoldersList } from "@/components/trade/LiveFeed";
-import { getTokenOverview } from "@/lib/birdeye";
+import { getTokenOverview, getPriceHistory } from "@/lib/birdeye";
 import { MOCK_TOKENS, mockChartSeries } from "@/lib/mock";
 import { formatPrice, compact, truncateAddress } from "@/lib/format";
 import type { Token } from "@/lib/types";
+import type { ChartPoint } from "@/components/TradingChart";
 
 const TradingChart = dynamic(() => import("@/components/TradingChart"), {
   ssr: false,
@@ -50,7 +51,9 @@ export default function TradePage({
     };
   }, [address]);
 
-  const series = useMemo(() => {
+  // Each timeframe maps to a real Birdeye history window; fall back to a
+  // generated series only if the live request comes back empty.
+  const fallback = useMemo(() => {
     const cfg: Record<Timeframe, [number, number]> = {
       "5m": [60, 1],
       "1h": [60, 2],
@@ -61,6 +64,37 @@ export default function TradePage({
     const [days, seed] = cfg[tf];
     return mockChartSeries(days, seed);
   }, [tf]);
+
+  // Cache of fetched live history keyed by token+timeframe. Until a window's
+  // real data arrives we render the generated fallback for that window.
+  const [history, setHistory] = useState<Record<string, ChartPoint[]>>({});
+  const histKey = `${address}-${tf}`;
+
+  useEffect(() => {
+    let active = true;
+    const range: Record<Timeframe, string> = {
+      "5m": "24H",
+      "1h": "1W",
+      "4h": "1M",
+      "1D": "1Y",
+      "1W": "ALL",
+    };
+    getPriceHistory(address, range[tf]).then((points) => {
+      if (!active || points.length < 2) return;
+      setHistory((m) => ({
+        ...m,
+        [`${address}-${tf}`]: points.map((p) => ({
+          time: p.time,
+          value: p.value,
+        })),
+      }));
+    });
+    return () => {
+      active = false;
+    };
+  }, [address, tf]);
+
+  const series = history[histKey] ?? fallback;
 
   const display: Token =
     token ?? {
@@ -161,7 +195,7 @@ export default function TradePage({
           <FadeIn delay={0.15}>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <SectionBoundary label="live trades">
-                <LiveTrades />
+                <LiveTrades address={display.address} />
               </SectionBoundary>
               <SectionBoundary label="holders">
                 <HoldersList />

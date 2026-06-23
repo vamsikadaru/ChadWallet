@@ -37,6 +37,24 @@ export default function HoldingsGrid({
     );
   }
 
+  if (!holdings.length) {
+    return (
+      <div className="glass flex flex-col items-center justify-center gap-2 py-12 text-center">
+        <p className="text-[15px] font-semibold text-text-1">No tokens yet</p>
+        <p className="max-w-[280px] text-[13px] text-text-2">
+          Deposit SOL or buy a trending token and your holdings will show up
+          here — priced live.
+        </p>
+        <Link
+          href="/deposit"
+          className="btn-buy mt-2 inline-flex h-10 items-center gap-2 rounded-[var(--radius-pill)] px-5 text-[13px] font-semibold text-white"
+        >
+          Deposit
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <motion.div
       variants={staggerParent}
