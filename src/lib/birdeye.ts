@@ -135,13 +135,22 @@ const HISTORY_WINDOWS: Record<
  * Real USD price history for a mint over a named range. Returns `[]` when the
  * key is missing or the request fails so callers can fall back gracefully.
  */
+/**
+ * Quantize the time window to 60s buckets so the same URL is reused for a
+ * minute — letting the CDN / Next cache absorb repeat requests instead of
+ * hammering BirdEye (and tripping the free-tier rate limit) on every render.
+ */
+function window60(span: number): { from: number; to: number } {
+  const to = Math.floor(Date.now() / 1000 / 60) * 60;
+  return { from: to - span, to };
+}
+
 export async function getPriceHistory(
   address: string,
   range: string
 ): Promise<PricePoint[]> {
   const win = HISTORY_WINDOWS[range] ?? HISTORY_WINDOWS["1W"];
-  const now = Math.floor(Date.now() / 1000);
-  const from = now - win.span;
+  const { from, to: now } = window60(win.span);
   try {
     const res = await fetch(
       `${apiBase()}/api/birdeye?type=history_price&address=${address}` +
@@ -210,8 +219,7 @@ export async function getOHLCV(
   range: string
 ): Promise<Candle[]> {
   const win = OHLCV_WINDOWS[range] ?? OHLCV_WINDOWS["1W"];
-  const now = Math.floor(Date.now() / 1000);
-  const from = now - win.span;
+  const { from, to: now } = window60(win.span);
   try {
     const res = await fetch(
       `${apiBase()}/api/birdeye?type=ohlcv&address=${address}` +
@@ -240,6 +248,59 @@ export async function getOHLCV(
         })
       )
       .filter((c: Candle) => isFinite(c.close) && c.close > 0);
+  } catch {
+    return [];
+  }
+}
+
+/** Synthesize candles from a price line (open = previous close). Volume 0. */
+function lineToCandles(points: PricePoint[]): Candle[] {
+  return points.map((p, i) => {
+    const open = i > 0 ? points[i - 1].value : p.value;
+    const close = p.value;
+    return {
+      time: p.time,
+      open,
+      high: Math.max(open, close),
+      low: Math.min(open, close),
+      close,
+      volume: 0,
+    };
+  });
+}
+
+/**
+ * Resilient candle fetch for the chart. Tries OHLCV, retries once on a
+ * transient empty (rate limit), then falls back to deriving candles from the
+ * price-history line — so a token with *any* data never shows a blank chart.
+ */
+export async function getCandles(
+  address: string,
+  range: string
+): Promise<Candle[]> {
+  let candles = await getOHLCV(address, range);
+  if (candles.length) return candles;
+  candles = await getOHLCV(address, range);
+  if (candles.length) return candles;
+
+  const win = OHLCV_WINDOWS[range] ?? OHLCV_WINDOWS["1W"];
+  const { from, to } = window60(win.span);
+  try {
+    const res = await fetch(
+      `${apiBase()}/api/birdeye?type=history_price&address=${address}` +
+        `&address_type=token&interval=${win.interval}&time_from=${from}&time_to=${to}`,
+      { next: { revalidate: 60 } }
+    );
+    const json = await res.json();
+    const items = json?.data?.items;
+    if (json?.fallback || !Array.isArray(items)) return [];
+    const line = items
+      .map((i: { unixTime: number; value: number }) => ({
+        time: i.unixTime,
+        value: i.value,
+      }))
+      .filter((p: PricePoint) => isFinite(p.value) && p.value > 0);
+    return lineToCandles(line);
   } catch {
     return [];
   }

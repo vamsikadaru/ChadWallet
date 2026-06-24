@@ -14,7 +14,7 @@ import TradePanel from "@/components/trade/TradePanel";
 import TradeRail from "@/components/trade/TokenRail";
 import TokenStats from "@/components/trade/TokenStats";
 import { LiveTrades, HoldersList } from "@/components/trade/LiveFeed";
-import { getTokenOverview, getOHLCV, type Candle } from "@/lib/birdeye";
+import { getTokenOverview, getCandles, type Candle } from "@/lib/birdeye";
 import { MOCK_TOKENS } from "@/lib/mock";
 import { formatPrice, compact, truncateAddress } from "@/lib/format";
 import type { Token } from "@/lib/types";
@@ -67,7 +67,7 @@ export default function TradePage({
 
   useEffect(() => {
     let active = true;
-    getOHLCV(address, range).then((c) => {
+    getCandles(address, range).then((c) => {
       if (active && c.length) {
         setCandleCache((m) => ({ ...m, [`${address}-${range}`]: c }));
       }
