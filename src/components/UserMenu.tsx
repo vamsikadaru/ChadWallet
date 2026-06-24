@@ -95,7 +95,7 @@ export default function UserMenu() {
             <div className="my-1 h-px bg-border" />
 
             <Link
-              href="/"
+              href="/profile"
               onClick={() => setOpen(false)}
               className="flex items-center gap-2.5 rounded-[var(--radius-sm)] px-3 py-2 text-[13px] text-text-1 transition-colors hover:bg-bg-2/60"
             >

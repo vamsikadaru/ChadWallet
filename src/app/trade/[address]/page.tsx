@@ -106,7 +106,7 @@ export default function TradePage({
     <div className="pb-24 lg:pb-0">
       <FadeIn>
         <Link
-          href="/trending"
+          href="/"
           className="caps mb-4 inline-flex items-center gap-1.5 text-text-2 transition-colors hover:text-text-1"
         >
           <ArrowLeft size={13} /> Markets

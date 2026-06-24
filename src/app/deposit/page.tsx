@@ -228,13 +228,13 @@ export default function DepositPage() {
               </p>
               <div className="mt-7 flex items-center gap-3">
                 <Link
-                  href="/"
+                  href="/profile"
                   className="flex h-11 items-center rounded-[var(--radius-pill)] border border-border px-5 text-[14px] text-text-1 transition-colors hover:border-[var(--border-bright)]"
                 >
                   View profile
                 </Link>
                 <Link
-                  href="/trending"
+                  href="/"
                   className="btn-buy flex h-11 items-center rounded-[var(--radius-pill)] px-5 text-[14px] font-semibold text-white"
                 >
                   Start trading

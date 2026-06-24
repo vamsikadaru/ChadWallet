@@ -146,7 +146,7 @@ export default function WithdrawPage() {
                     Withdraw again
                   </button>
                   <Link
-                    href="/"
+                    href="/profile"
                     className="btn-buy flex h-11 items-center rounded-[var(--radius-pill)] px-5 text-[14px] font-semibold text-white"
                   >
                     View profile
