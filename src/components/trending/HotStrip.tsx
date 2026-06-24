@@ -31,16 +31,23 @@ export default function HotStrip({ tokens }: { tokens: Token[] }) {
             >
               <Link
                 href={`/trade/${t.address}`}
-                className="glass flex w-[170px] shrink-0 flex-col gap-2 p-3.5 transition-colors hover:border-[var(--border-bright)]"
+                className="glass flex w-[186px] shrink-0 flex-col gap-2 p-3.5 transition-colors hover:border-[var(--border-bright)]"
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <TokenLogo src={t.logoURI} symbol={t.symbol} size={26} />
-                    <span className="font-display text-[14px] font-bold">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <TokenLogo
+                      src={t.logoURI}
+                      symbol={t.symbol}
+                      size={26}
+                      className="shrink-0"
+                    />
+                    <span className="truncate font-display text-[14px] font-bold">
                       {t.symbol}
                     </span>
                   </div>
-                  <PriceBadge value={t.priceChange24h} showArrow={false} />
+                  <span className="shrink-0">
+                    <PriceBadge value={t.priceChange24h} showArrow={false} />
+                  </span>
                 </div>
                 <span className="font-mono text-[13px] text-text-1">
                   {formatPrice(t.price)}
