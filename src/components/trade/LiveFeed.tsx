@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { compact, formatUsd, relativeTime, truncateAddress } from "@/lib/format";
 import { mockTradePrints, mockHolders } from "@/lib/mock";
-import { getTokenTrades } from "@/lib/birdeye";
+import { getTokenTrades, getTokenHolders } from "@/lib/birdeye";
 import type { TradePrint, Holder } from "@/lib/types";
 
 /**
@@ -123,14 +123,43 @@ export function LiveTrades({ address }: { address?: string }) {
   );
 }
 
-/** Top 20 holders with supply-share progress bars. */
-export function HoldersList() {
-  const [holders] = useState<Holder[]>(() => mockHolders());
+/** Top 20 holders with supply-share progress bars (real data when available). */
+export function HoldersList({
+  address,
+  supply,
+}: {
+  address?: string;
+  supply?: number;
+}) {
+  const [holders, setHolders] = useState<Holder[]>(() => mockHolders());
+  const [live, setLive] = useState(false);
+
+  useEffect(() => {
+    if (!address) return;
+    let active = true;
+    getTokenHolders(address, supply).then((hs) => {
+      if (!active || !hs.length) return;
+      setHolders(
+        hs.map((h) => ({
+          address: h.address,
+          pct: Number(h.pct.toFixed(2)),
+          amount: h.amount,
+        }))
+      );
+      setLive(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, [address, supply]);
 
   return (
     <div className="glass flex flex-col p-5">
       <div className="mb-3 flex items-center gap-2">
         <span className="caps">Top holders</span>
+        {live && (
+          <span className="live-dot h-1.5 w-1.5 rounded-full bg-success" />
+        )}
       </div>
       <div className="max-h-[280px] space-y-2 overflow-y-auto custom-scrollbar pr-1">
         {holders.map((h, i) => (

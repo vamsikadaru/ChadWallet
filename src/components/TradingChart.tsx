@@ -1,33 +1,38 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { createChart, ColorType, AreaSeries, type IChartApi } from "lightweight-charts";
+import {
+  createChart,
+  ColorType,
+  CandlestickSeries,
+  HistogramSeries,
+  type IChartApi,
+  type UTCTimestamp,
+} from "lightweight-charts";
+import type { Candle } from "@/lib/birdeye";
 
-export interface ChartPoint {
-  time: number;
-  value: number;
-}
+const UP = "#14F195";
+const DOWN = "#FF4B4B";
 
 /**
- * Lightweight-charts area chart themed to the design system.
- * Color follows whether the series is up or down over the window.
+ * Candlestick + volume chart themed to the design system. Candles come from
+ * BirdEye OHLCV. `scale` lets the trade page render in price or market-cap
+ * terms by multiplying every value (MCap = price × supply factor).
  */
 export default function TradingChart({
-  data,
+  candles,
+  scale = 1,
   height = 360,
 }: {
-  data: ChartPoint[];
+  candles: Candle[];
+  scale?: number;
   height?: number;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
 
   useEffect(() => {
-    if (!containerRef.current) return;
-
-    const up =
-      data.length > 1 ? data[data.length - 1].value >= data[0].value : true;
-    const line = up ? "#14F195" : "#FF4B4B";
+    if (!containerRef.current || !candles.length) return;
 
     const chart = createChart(containerRef.current, {
       layout: {
@@ -47,21 +52,47 @@ export default function TradingChart({
         horzLine: { color: "rgba(255,255,255,0.15)", labelBackgroundColor: "#1A1A24" },
       },
       timeScale: { timeVisible: true, secondsVisible: false, borderVisible: false },
-      rightPriceScale: { borderVisible: false },
-      handleScale: false,
-      handleScroll: false,
+      rightPriceScale: {
+        borderVisible: false,
+        scaleMargins: { top: 0.08, bottom: 0.28 },
+      },
     });
     chartRef.current = chart;
 
-    const series = chart.addSeries(AreaSeries, {
-      lineColor: line,
-      topColor: up ? "rgba(20,241,149,0.28)" : "rgba(255,75,75,0.28)",
-      bottomColor: "rgba(0,0,0,0)",
-      lineWidth: 2,
-      priceLineVisible: false,
-      lastValueVisible: true,
+    const candleSeries = chart.addSeries(CandlestickSeries, {
+      upColor: UP,
+      downColor: DOWN,
+      wickUpColor: UP,
+      wickDownColor: DOWN,
+      borderVisible: false,
+      priceLineColor: "rgba(255,255,255,0.25)",
     });
-    series.setData(data as never);
+    candleSeries.setData(
+      candles.map((c) => ({
+        time: c.time as UTCTimestamp,
+        open: c.open * scale,
+        high: c.high * scale,
+        low: c.low * scale,
+        close: c.close * scale,
+      }))
+    );
+
+    const volSeries = chart.addSeries(HistogramSeries, {
+      priceFormat: { type: "volume" },
+      priceScaleId: "",
+    });
+    volSeries.priceScale().applyOptions({
+      scaleMargins: { top: 0.82, bottom: 0 },
+    });
+    volSeries.setData(
+      candles.map((c) => ({
+        time: c.time as UTCTimestamp,
+        value: c.volume,
+        color:
+          c.close >= c.open ? "rgba(20,241,149,0.4)" : "rgba(255,75,75,0.4)",
+      }))
+    );
+
     chart.timeScale().fitContent();
 
     const handleResize = () => {
@@ -76,7 +107,7 @@ export default function TradingChart({
       chart.remove();
       chartRef.current = null;
     };
-  }, [data, height]);
+  }, [candles, scale, height]);
 
   return <div ref={containerRef} className="w-full" style={{ height }} />;
 }

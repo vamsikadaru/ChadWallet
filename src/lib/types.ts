@@ -9,6 +9,17 @@ export interface Token {
   marketCap: number;
   liquidity?: number;
   sparkline?: number[];
+  // Optional analytics (present when sourced from BirdEye token_overview).
+  holders?: number;
+  buys24h?: number;
+  sells24h?: number;
+  vBuy24h?: number; // buy volume USD
+  vSell24h?: number; // sell volume USD
+  change5m?: number;
+  change1h?: number;
+  change4h?: number;
+  supply?: number;
+  description?: string;
 }
 
 export interface Holding {

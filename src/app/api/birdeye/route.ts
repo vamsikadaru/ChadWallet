@@ -49,6 +49,17 @@ export async function GET(req: Request) {
   // Forward through any whitelisted query params (minus our own `type`).
   const forwarded = new URLSearchParams(searchParams);
   forwarded.delete("type");
+
+  // BirdEye's ohlcv/history_price endpoints take their candle interval in a
+  // param *also* named `type`, which collides with our routing `type`. Callers
+  // pass it as `interval` and we remap it here so it survives the strip above.
+  if (type === "ohlcv" || type === "history_price") {
+    const interval = forwarded.get("interval");
+    if (interval) {
+      forwarded.delete("interval");
+      forwarded.set("type", interval);
+    }
+  }
   const url = `${BIRDEYE}${path}${forwarded.toString() ? `?${forwarded}` : ""}`;
 
   try {

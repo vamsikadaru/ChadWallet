@@ -13,17 +13,46 @@ interface BirdeyeRaw {
   symbol: string;
   logoURI?: string;
   price?: number;
+  // 24h price change is named differently across endpoints:
+  priceChange24hPercent?: number; // token_overview
+  price24hChangePercent?: number; // token_trending
   v24hChangePercent?: number;
-  priceChange24hPercent?: number;
-  volume24hUSD?: number;
-  v24hUSD?: number;
-  liquidity?: number;
-  mc?: number;
+  priceChange5mPercent?: number;
+  priceChange1hPercent?: number;
+  priceChange4hPercent?: number;
+  // Volume:
+  volume24hUSD?: number; // token_trending
+  v24hUSD?: number; // token_overview
+  // Market cap is `marketCap` (overview), `marketcap` (trending), or `mc`:
+  marketCap?: number;
   marketcap?: number;
+  mc?: number;
+  realMc?: number;
+  fdv?: number;
+  liquidity?: number;
+  holder?: number;
+  buy24h?: number;
+  sell24h?: number;
+  vBuy24hUSD?: number;
+  vSell24hUSD?: number;
+  supply?: number;
+  circulatingSupply?: number;
+  totalSupply?: number;
+  extensions?: { description?: string };
 }
 
 function normalize(raw: BirdeyeRaw, i: number): Token {
-  const change = raw.priceChange24hPercent ?? raw.v24hChangePercent ?? 0;
+  const change =
+    raw.priceChange24hPercent ??
+    raw.price24hChangePercent ??
+    raw.v24hChangePercent ??
+    0;
+  const volume =
+    raw.volume24hUSD ??
+    raw.v24hUSD ??
+    (raw.vBuy24hUSD != null || raw.vSell24hUSD != null
+      ? (raw.vBuy24hUSD ?? 0) + (raw.vSell24hUSD ?? 0)
+      : 0);
   return {
     address: raw.address,
     name: raw.name ?? raw.symbol,
@@ -31,10 +60,20 @@ function normalize(raw: BirdeyeRaw, i: number): Token {
     logoURI: raw.logoURI,
     price: raw.price ?? 0,
     priceChange24h: change,
-    volume24h: raw.volume24hUSD ?? raw.v24hUSD ?? 0,
-    marketCap: raw.mc ?? raw.marketcap ?? 0,
+    volume24h: volume,
+    marketCap: raw.marketCap ?? raw.marketcap ?? raw.mc ?? raw.realMc ?? raw.fdv ?? 0,
     liquidity: raw.liquidity,
     sparkline: makeSparkline(i + 1, 32, change >= 0),
+    holders: raw.holder,
+    buys24h: raw.buy24h,
+    sells24h: raw.sell24h,
+    vBuy24h: raw.vBuy24hUSD,
+    vSell24h: raw.vSell24hUSD,
+    change5m: raw.priceChange5mPercent,
+    change1h: raw.priceChange1hPercent,
+    change4h: raw.priceChange4hPercent,
+    supply: raw.circulatingSupply ?? raw.totalSupply ?? raw.supply,
+    description: raw.extensions?.description,
   };
 }
 
@@ -106,7 +145,7 @@ export async function getPriceHistory(
   try {
     const res = await fetch(
       `${apiBase()}/api/birdeye?type=history_price&address=${address}` +
-        `&address_type=token&type=${win.type}&time_from=${from}&time_to=${now}`,
+        `&address_type=token&interval=${win.type}&time_from=${from}&time_to=${now}`,
       { next: { revalidate: 60 } }
     );
     const json = await res.json();
@@ -147,6 +186,103 @@ export async function getMultiPrice(
   }
 }
 
+export interface Candle {
+  time: number; // unix seconds
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+/** OHLCV candle windows keyed by UI range → BirdEye candle interval + span. */
+const OHLCV_WINDOWS: Record<string, { interval: string; span: number }> = {
+  "1D": { interval: "15m", span: 86400 },
+  "1W": { interval: "1H", span: 7 * 86400 },
+  "1M": { interval: "4H", span: 30 * 86400 },
+  "3M": { interval: "12H", span: 90 * 86400 },
+  "1Y": { interval: "1D", span: 365 * 86400 },
+};
+
+/** Real OHLC candles + volume for a mint over a named range. `[]` on failure. */
+export async function getOHLCV(
+  address: string,
+  range: string
+): Promise<Candle[]> {
+  const win = OHLCV_WINDOWS[range] ?? OHLCV_WINDOWS["1W"];
+  const now = Math.floor(Date.now() / 1000);
+  const from = now - win.span;
+  try {
+    const res = await fetch(
+      `${apiBase()}/api/birdeye?type=ohlcv&address=${address}` +
+        `&interval=${win.interval}&time_from=${from}&time_to=${now}`,
+      { next: { revalidate: 30 } }
+    );
+    const json = await res.json();
+    const items = json?.data?.items;
+    if (json?.fallback || !Array.isArray(items)) return [];
+    return items
+      .map(
+        (i: {
+          unixTime: number;
+          o: number;
+          h: number;
+          l: number;
+          c: number;
+          v: number;
+        }): Candle => ({
+          time: i.unixTime,
+          open: i.o,
+          high: i.h,
+          low: i.l,
+          close: i.c,
+          volume: i.v ?? 0,
+        })
+      )
+      .filter((c: Candle) => isFinite(c.close) && c.close > 0);
+  } catch {
+    return [];
+  }
+}
+
+export interface TokenHolder {
+  address: string;
+  amount: number;
+  pct: number; // % of supply (0 when supply unknown)
+}
+
+/** Top holders for a mint. `supply` lets us compute supply share. `[]` on fail. */
+export async function getTokenHolders(
+  address: string,
+  supply?: number
+): Promise<TokenHolder[]> {
+  try {
+    const res = await fetch(
+      `${apiBase()}/api/birdeye?type=holder&address=${address}&offset=0&limit=20`,
+      { next: { revalidate: 60 } }
+    );
+    const json = await res.json();
+    const items = json?.data?.items;
+    if (json?.fallback || !Array.isArray(items)) return [];
+    return items
+      .map((it: Record<string, unknown>): TokenHolder => {
+        const amount =
+          (it.ui_amount as number) ??
+          (it.uiAmount as number) ??
+          Number(it.amount) ??
+          0;
+        return {
+          address: (it.owner as string) ?? (it.address as string) ?? "",
+          amount,
+          pct: supply && supply > 0 ? (amount / supply) * 100 : 0,
+        };
+      })
+      .filter((h: TokenHolder) => h.address);
+  } catch {
+    return [];
+  }
+}
+
 export interface LiveTrade {
   id: string;
   side: "buy" | "sell";
@@ -160,6 +296,12 @@ export interface LiveTrade {
  * Recent real swaps for a token. Birdeye's tx schema varies, so this parses
  * defensively and returns `[]` on any mismatch (callers fall back to a stream).
  */
+interface TxSide {
+  address?: string;
+  uiAmount?: number;
+  price?: number;
+}
+
 export async function getTokenTrades(address: string): Promise<LiveTrade[]> {
   try {
     const res = await fetch(
@@ -173,18 +315,24 @@ export async function getTokenTrades(address: string): Promise<LiveTrade[]> {
     return items
       .map((it: Record<string, unknown>, i: number): LiveTrade | null => {
         const side = it.side === "buy" || it.side === "sell" ? it.side : null;
-        const ut =
-          (it.blockUnixTime as number) ?? (it.block_unix_time as number) ?? 0;
-        const usd =
-          (it.volumeUSD as number) ??
-          (it.volume_usd as number) ??
-          (it.valueUSD as number) ??
-          0;
-        const price =
-          (it.priceUSD as number) ?? (it.price as number) ?? 0;
-        const owner =
-          (it.owner as string) ?? (it.txHash as string) ?? `t${i}`;
+        const ut = (it.blockUnixTime as number) ?? 0;
         if (!side || !ut) return null;
+        const from = (it.from as TxSide) ?? {};
+        const to = (it.to as TxSide) ?? {};
+        const quote = (it.quote as TxSide) ?? {};
+        const base = (it.base as TxSide) ?? {};
+        // USD value of the swap (either leg works; they net out).
+        const usd =
+          Math.abs((from.uiAmount ?? 0) * (from.price ?? 0)) ||
+          Math.abs((to.uiAmount ?? 0) * (to.price ?? 0));
+        // Price of the token this page is about.
+        const price =
+          quote.address === address
+            ? quote.price ?? 0
+            : base.address === address
+              ? base.price ?? 0
+              : (it.quotePrice as number) ?? 0;
+        const owner = (it.owner as string) ?? (it.txHash as string) ?? `t${i}`;
         return {
           id: `${owner}-${ut}-${i}`,
           side,
@@ -197,5 +345,23 @@ export async function getTokenTrades(address: string): Promise<LiveTrade[]> {
       .filter((t: LiveTrade | null): t is LiveTrade => t !== null);
   } catch {
     return [];
+  }
+}
+
+/** Single live price + 24h change via the lightweight `/defi/price` endpoint. */
+export async function getPrice(
+  address: string
+): Promise<{ value: number; change24h: number } | null> {
+  try {
+    const res = await fetch(
+      `${apiBase()}/api/birdeye?type=price&address=${address}`,
+      { next: { revalidate: 20 } }
+    );
+    const json = await res.json();
+    const data = json?.data;
+    if (json?.fallback || !data || typeof data.value !== "number") return null;
+    return { value: data.value, change24h: data.priceChange24h ?? 0 };
+  } catch {
+    return null;
   }
 }

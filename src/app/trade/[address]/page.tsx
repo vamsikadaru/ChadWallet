@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useMemo, useState } from "react";
+import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
@@ -11,20 +11,22 @@ import Skeleton from "@/components/ui/Skeleton";
 import SectionBoundary from "@/components/SectionBoundary";
 import { FadeIn } from "@/components/ui/motion";
 import TradePanel from "@/components/trade/TradePanel";
+import TradeRail from "@/components/trade/TokenRail";
+import TokenStats from "@/components/trade/TokenStats";
 import { LiveTrades, HoldersList } from "@/components/trade/LiveFeed";
-import { getTokenOverview, getPriceHistory } from "@/lib/birdeye";
-import { MOCK_TOKENS, mockChartSeries } from "@/lib/mock";
+import { getTokenOverview, getOHLCV, type Candle } from "@/lib/birdeye";
+import { MOCK_TOKENS } from "@/lib/mock";
 import { formatPrice, compact, truncateAddress } from "@/lib/format";
 import type { Token } from "@/lib/types";
-import type { ChartPoint } from "@/components/TradingChart";
 
 const TradingChart = dynamic(() => import("@/components/TradingChart"), {
   ssr: false,
   loading: () => <Skeleton className="h-[360px] w-full" />,
 });
 
-const TIMEFRAMES = ["5m", "1h", "4h", "1D", "1W"] as const;
-type Timeframe = (typeof TIMEFRAMES)[number];
+const RANGES = ["1D", "1W", "1M", "3M", "1Y"] as const;
+type Range = (typeof RANGES)[number];
+type Tab = "swaps" | "holders";
 
 export default function TradePage({
   params,
@@ -36,7 +38,9 @@ export default function TradePage({
     MOCK_TOKENS.find((t) => t.address === address) ?? null
   );
   const [loading, setLoading] = useState(!token);
-  const [tf, setTf] = useState<Timeframe>("1D");
+  const [range, setRange] = useState<Range>("1D");
+  const [denom, setDenom] = useState<"price" | "mcap">("price");
+  const [tab, setTab] = useState<Tab>("swaps");
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
@@ -46,55 +50,34 @@ export default function TradePage({
       if (t) setToken(t);
       setLoading(false);
     });
+    const id = setInterval(() => {
+      getTokenOverview(address).then((t) => {
+        if (active && t) setToken(t);
+      });
+    }, 20000);
     return () => {
       active = false;
+      clearInterval(id);
     };
   }, [address]);
 
-  // Each timeframe maps to a real Birdeye history window; fall back to a
-  // generated series only if the live request comes back empty.
-  const fallback = useMemo(() => {
-    const cfg: Record<Timeframe, [number, number]> = {
-      "5m": [60, 1],
-      "1h": [60, 2],
-      "4h": [60, 3],
-      "1D": [90, 4],
-      "1W": [120, 5],
-    };
-    const [days, seed] = cfg[tf];
-    return mockChartSeries(days, seed);
-  }, [tf]);
-
-  // Cache of fetched live history keyed by token+timeframe. Until a window's
-  // real data arrives we render the generated fallback for that window.
-  const [history, setHistory] = useState<Record<string, ChartPoint[]>>({});
-  const histKey = `${address}-${tf}`;
+  // Live OHLCV candles, cached per token+range.
+  const [candleCache, setCandleCache] = useState<Record<string, Candle[]>>({});
+  const candleKey = `${address}-${range}`;
 
   useEffect(() => {
     let active = true;
-    const range: Record<Timeframe, string> = {
-      "5m": "24H",
-      "1h": "1W",
-      "4h": "1M",
-      "1D": "1Y",
-      "1W": "ALL",
-    };
-    getPriceHistory(address, range[tf]).then((points) => {
-      if (!active || points.length < 2) return;
-      setHistory((m) => ({
-        ...m,
-        [`${address}-${tf}`]: points.map((p) => ({
-          time: p.time,
-          value: p.value,
-        })),
-      }));
+    getOHLCV(address, range).then((c) => {
+      if (active && c.length) {
+        setCandleCache((m) => ({ ...m, [`${address}-${range}`]: c }));
+      }
     });
     return () => {
       active = false;
     };
-  }, [address, tf]);
+  }, [address, range]);
 
-  const series = history[histKey] ?? fallback;
+  const candles = candleCache[candleKey] ?? [];
 
   const display: Token =
     token ?? {
@@ -107,33 +90,43 @@ export default function TradePage({
       marketCap: 0,
     };
 
-  const stats = [
-    { label: "Market Cap", value: `$${compact(display.marketCap)}` },
-    { label: "24h Volume", value: `$${compact(display.volume24h)}` },
-    {
-      label: "Liquidity",
-      value: `$${compact(display.liquidity ?? display.volume24h * 0.3)}`,
-    },
-    { label: "Holders", value: compact(18420) },
-  ];
+  // MCap view scales every candle by circulating supply (mc = price × supply).
+  const scale =
+    denom === "mcap" && display.price > 0
+      ? display.supply && display.supply > 0
+        ? display.supply
+        : display.marketCap / display.price
+      : 1;
+
+  const last = candles[candles.length - 1];
+  const fmt = (v?: number) =>
+    v == null ? "—" : denom === "mcap" ? `$${compact(v * scale)}` : formatPrice(v);
 
   return (
-    <div className="space-y-6 pb-24 lg:pb-0">
+    <div className="pb-24 lg:pb-0">
       <FadeIn>
         <Link
           href="/trending"
-          className="caps inline-flex items-center gap-1.5 text-text-2 transition-colors hover:text-text-1"
+          className="caps mb-4 inline-flex items-center gap-1.5 text-text-2 transition-colors hover:text-text-1"
         >
           <ArrowLeft size={13} /> Markets
         </Link>
       </FadeIn>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Chart + data column */}
-        <div className="space-y-6 lg:col-span-2">
+      <div className="flex gap-5">
+        {/* Left rail — persistent token list (desktop only) */}
+        <aside className="hidden w-[240px] shrink-0 xl:block">
+          <div className="sticky top-6 h-[calc(100vh-120px)]">
+            <TradeRail activeAddress={address} />
+          </div>
+        </aside>
+
+        {/* Center column — header, chart, tabs */}
+        <div className="min-w-0 flex-1 space-y-5">
           <FadeIn delay={0.05}>
             <div className="glass p-5 sm:p-6">
-              <div className="flex items-center justify-between">
+              {/* Header: identity + key stats */}
+              <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <TokenLogo src={display.logoURI} symbol={display.symbol} size={44} />
                   <div>
@@ -159,64 +152,127 @@ export default function TradePage({
                 </div>
               </div>
 
-              <div className="mt-5 flex items-center gap-1 rounded-[var(--radius-pill)] border border-border bg-bg-0/50 p-1">
-                {TIMEFRAMES.map((t) => (
+              {/* Stat strip */}
+              <div className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-[var(--radius-md)] border border-border sm:grid-cols-4">
+                {[
+                  { label: "Market cap", value: `$${compact(display.marketCap)}` },
+                  { label: "24h Vol", value: `$${compact(display.volume24h)}` },
+                  { label: "Liquidity", value: `$${compact(display.liquidity ?? 0)}` },
+                  {
+                    label: "Holders",
+                    value: display.holders != null ? compact(display.holders) : "—",
+                  },
+                ].map((s) => (
+                  <div key={s.label} className="bg-bg-0/40 px-3 py-2.5">
+                    <p className="caps">{s.label}</p>
+                    <p className="mt-1 font-mono text-[14px] font-medium">{s.value}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Chart controls: OHLC readout + Price/MCap + range */}
+              <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3 font-mono text-[11px]">
+                  {(["O", "H", "L", "C"] as const).map((k, idx) => {
+                    const v = last
+                      ? [last.open, last.high, last.low, last.close][idx]
+                      : undefined;
+                    return (
+                      <span key={k} className="text-text-3">
+                        {k}{" "}
+                        <span className="text-text-1">{fmt(v)}</span>
+                      </span>
+                    );
+                  })}
+                </div>
+                <div className="flex items-center gap-1 rounded-[var(--radius-pill)] border border-border bg-bg-0/50 p-1">
+                  {(["price", "mcap"] as const).map((d) => (
+                    <button
+                      key={d}
+                      onClick={() => setDenom(d)}
+                      className={`rounded-[var(--radius-pill)] px-3 py-1 font-mono text-[12px] uppercase transition-colors ${
+                        denom === d ? "bg-bg-2 text-text-1" : "text-text-2 hover:text-text-1"
+                      }`}
+                    >
+                      {d === "price" ? "Price" : "MCap"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-3 flex items-center gap-1 rounded-[var(--radius-pill)] border border-border bg-bg-0/50 p-1">
+                {RANGES.map((r) => (
                   <button
-                    key={t}
-                    onClick={() => setTf(t)}
+                    key={r}
+                    onClick={() => setRange(r)}
                     className={`rounded-[var(--radius-pill)] px-3 py-1 font-mono text-[12px] transition-colors ${
-                      tf === t ? "bg-bg-2 text-text-1" : "text-text-2 hover:text-text-1"
+                      range === r ? "bg-bg-2 text-text-1" : "text-text-2 hover:text-text-1"
                     }`}
                   >
-                    {t}
+                    {r}
                   </button>
                 ))}
               </div>
 
               <div className="mt-4">
                 <SectionBoundary label="chart">
-                  <TradingChart data={series} />
+                  {candles.length ? (
+                    <TradingChart candles={candles} scale={scale} />
+                  ) : (
+                    <div className="flex h-[360px] items-center justify-center text-[13px] text-text-3">
+                      {loading ? "Loading chart…" : "No chart data for this token"}
+                    </div>
+                  )}
                 </SectionBoundary>
               </div>
             </div>
           </FadeIn>
 
+          {/* Bottom tabs: Swaps / Holders */}
           <FadeIn delay={0.1}>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {stats.map((s) => (
-                <div key={s.label} className="glass p-4">
-                  <p className="caps">{s.label}</p>
-                  <p className="mt-1.5 font-mono text-[15px] font-medium">{s.value}</p>
-                </div>
-              ))}
-            </div>
-          </FadeIn>
-
-          <FadeIn delay={0.15}>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <SectionBoundary label="live trades">
-                <LiveTrades address={display.address} />
-              </SectionBoundary>
-              <SectionBoundary label="holders">
-                <HoldersList />
+            <div>
+              <div className="mb-3 flex items-center gap-1 rounded-[var(--radius-pill)] border border-border bg-bg-1 p-1">
+                {(["swaps", "holders"] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setTab(t)}
+                    className={`rounded-[var(--radius-pill)] px-4 py-1.5 text-[13px] font-medium capitalize transition-colors ${
+                      tab === t ? "bg-bg-2 text-text-1" : "text-text-2 hover:text-text-1"
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+              <SectionBoundary label={tab}>
+                {tab === "swaps" ? (
+                  <LiveTrades address={display.address} />
+                ) : (
+                  <HoldersList address={display.address} supply={display.supply} />
+                )}
               </SectionBoundary>
             </div>
           </FadeIn>
         </div>
 
-        {/* Trade panel — sticky sidebar on desktop */}
-        <div className="hidden lg:col-span-1 lg:block">
-          <FadeIn delay={0.1}>
-            <div className="sticky top-8">
-              <SectionBoundary label="trade panel">
-                <TradePanel token={display} />
-              </SectionBoundary>
-            </div>
-          </FadeIn>
-        </div>
+        {/* Right column — trade panel + analytics (sticky, desktop) */}
+        <aside className="hidden w-[330px] shrink-0 lg:block">
+          <div className="sticky top-6 space-y-4">
+            <SectionBoundary label="trade panel">
+              <TradePanel token={display} />
+            </SectionBoundary>
+            <SectionBoundary label="about">
+              <TokenStats token={display} />
+            </SectionBoundary>
+          </div>
+        </aside>
       </div>
 
-      {/* Mobile: floating Trade button + bottom-sheet drawer */}
+      {/* Mobile: stats analytics below + floating Trade button + drawer */}
+      <div className="mt-5 lg:hidden">
+        <TokenStats token={display} />
+      </div>
+
       <div className="fixed inset-x-0 bottom-[72px] z-30 px-4 lg:hidden">
         <button
           onClick={() => setDrawerOpen(true)}

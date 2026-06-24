@@ -4,6 +4,7 @@ import { usePrivy } from "@privy-io/react-auth";
 import Sidebar from "./Sidebar";
 import BottomNav from "./BottomNav";
 import Landing from "./Landing";
+import MajorsTicker from "./MajorsTicker";
 
 function BootSplash() {
   return (
@@ -30,10 +31,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen">
       <Sidebar />
-      <main className="px-4 pb-28 pt-5 sm:px-6 lg:ml-[248px] lg:px-10 lg:pb-10 lg:pt-8">
+      <main className="px-4 pb-28 pt-5 sm:px-6 lg:ml-[248px] lg:px-10 lg:pb-14 lg:pt-8">
         <div className="mx-auto w-full max-w-6xl">{children}</div>
       </main>
       <BottomNav />
+      <MajorsTicker />
     </div>
   );
 }

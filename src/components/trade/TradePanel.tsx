@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Settings2, Check, Loader2, ArrowUpDown, AlertTriangle } from "lucide-react";
 import type { Token } from "@/lib/types";
 import { useSolanaWallet } from "@/lib/solana";
+import { getTokenOverview } from "@/lib/birdeye";
 
 const WSOL = "So11111111111111111111111111111111111111112";
 const SLIPPAGES = [0.5, 1, 3] as const;
@@ -34,6 +35,18 @@ export default function TradePanel({ token }: { token: Token }) {
   const [quoteRes, setQuoteRes] = useState<unknown>(null);
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState("");
+  const [solPrice, setSolPrice] = useState(0);
+
+  // Live SOL/USD price for USD↔SOL conversion (no hardcoded constant).
+  useEffect(() => {
+    let active = true;
+    getTokenOverview(WSOL).then((t) => {
+      if (active && t?.price) setSolPrice(t.price);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const inputUnit = side === "buy" ? (denom === "usd" ? "USD" : "SOL") : token.symbol;
   // Illustrative price impact derived from order size vs liquidity.
@@ -58,7 +71,7 @@ export default function TradePanel({ token }: { token: Token }) {
         const inputMint = side === "buy" ? WSOL : token.address;
         const outputMint = side === "buy" ? token.address : WSOL;
         // buy amount is in SOL (convert from USD if needed); sell amount in token.
-        const solUsd = 168.42;
+        const solUsd = solPrice || 0;
         const inAmount =
           side === "buy"
             ? denom === "usd"
@@ -85,7 +98,7 @@ export default function TradePanel({ token }: { token: Token }) {
         // Fallback estimate so the UI stays responsive without live routing.
         const est =
           side === "buy"
-            ? (denom === "usd" ? Number(amount) : Number(amount) * 168.42) /
+            ? (denom === "usd" ? Number(amount) : Number(amount) * (solPrice || 0)) /
               token.price
             : Number(amount) * token.price;
         setQuote(est.toFixed(4));
@@ -97,7 +110,7 @@ export default function TradePanel({ token }: { token: Token }) {
     return () => {
       if (debounce.current) clearTimeout(debounce.current);
     };
-  }, [amount, side, denom, slippage, token]);
+  }, [amount, side, denom, slippage, token, solPrice]);
 
   async function execute() {
     if (!authenticated) return login();

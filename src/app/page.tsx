@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowDownToLine, Compass } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, Compass } from "lucide-react";
 import { FadeIn } from "@/components/ui/motion";
 import SectionHeader from "@/components/ui/SectionHeader";
 import SectionBoundary from "@/components/SectionBoundary";
@@ -30,6 +30,13 @@ export default function PortfolioPage() {
             >
               <ArrowDownToLine size={16} />
               Deposit
+            </Link>
+            <Link
+              href="/withdraw"
+              className="flex h-11 items-center gap-2 rounded-[var(--radius-pill)] border border-border bg-bg-1 px-5 text-[14px] font-medium text-text-1 transition-colors hover:border-[var(--border-bright)]"
+            >
+              <ArrowUpFromLine size={16} />
+              Withdraw
             </Link>
             <Link
               href="/trending"

@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { NAV_ITEMS } from "@/lib/nav";
 import UserChip from "./UserChip";
 import Logo from "./Logo";
+import SearchCommand from "./SearchCommand";
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -16,7 +17,11 @@ export default function Sidebar() {
         <Logo />
       </div>
 
-      <nav className="mt-10 flex flex-1 flex-col gap-1">
+      <div className="mt-6">
+        <SearchCommand />
+      </div>
+
+      <nav className="mt-6 flex flex-1 flex-col gap-1">
         {NAV_ITEMS.map((item) => {
           const matchPath = "match" in item ? item.match : item.href;
           const active =
