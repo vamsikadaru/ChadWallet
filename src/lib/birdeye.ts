@@ -340,11 +340,11 @@ export async function getCandles(
   address: string,
   range: string
 ): Promise<Candle[]> {
-  let candles = await getOHLCV(address, range);
-  if (candles.length) return candles;
-  candles = await getOHLCV(address, range);
+  const candles = await getOHLCV(address, range);
   if (candles.length) return candles;
 
+  // OHLCV empty (new/illiquid token or a transient miss) — derive candles from
+  // the price-history line so anything with price data still renders.
   const win = OHLCV_WINDOWS[range] ?? OHLCV_WINDOWS["1W"];
   const { from, to } = window60(win.span);
   try {

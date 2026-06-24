@@ -4,7 +4,7 @@ import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, X } from "lucide-react";
+import { ArrowLeft, X, Loader2 } from "lucide-react";
 import TokenLogo from "@/components/ui/TokenLogo";
 import PriceBadge from "@/components/ui/PriceBadge";
 import Skeleton from "@/components/ui/Skeleton";
@@ -61,23 +61,49 @@ export default function TradePage({
     };
   }, [address]);
 
-  // Live OHLCV candles, cached per token+range.
+  // Live OHLCV candles, cached per token+range. A key lands in `emptyKeys` only
+  // after retries are exhausted, so transient rate-limit misses keep showing a
+  // loading state (and auto-recover) instead of a misleading "no data".
   const [candleCache, setCandleCache] = useState<Record<string, Candle[]>>({});
+  const [emptyKeys, setEmptyKeys] = useState<Set<string>>(new Set());
   const candleKey = `${address}-${range}`;
 
   useEffect(() => {
+    if (candleCache[candleKey]) return; // already loaded — instant on re-switch
     let active = true;
-    getCandles(address, range).then((c) => {
-      if (active && c.length) {
-        setCandleCache((m) => ({ ...m, [`${address}-${range}`]: c }));
-      }
-    });
+    let attempts = 0;
+    const key = candleKey;
+
+    const tryFetch = () => {
+      getCandles(address, range).then((c) => {
+        if (!active) return;
+        if (c.length) {
+          setCandleCache((m) => ({ ...m, [key]: c }));
+          setEmptyKeys((s) => {
+            if (!s.has(key)) return s;
+            const n = new Set(s);
+            n.delete(key);
+            return n;
+          });
+        } else if (attempts < 3) {
+          attempts += 1;
+          setTimeout(tryFetch, 1500); // back off, let rate-limit clear
+        } else {
+          setEmptyKeys((s) => new Set(s).add(key));
+        }
+      });
+    };
+    tryFetch();
+
     return () => {
       active = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address, range]);
 
   const candles = candleCache[candleKey] ?? [];
+  const chartEmpty = emptyKeys.has(candleKey);
+  const chartLoading = candles.length === 0 && !chartEmpty;
 
   const display: Token =
     token ?? {
@@ -218,9 +244,13 @@ export default function TradePage({
                 <SectionBoundary label="chart">
                   {candles.length ? (
                     <TradingChart candles={candles} scale={scale} />
+                  ) : chartLoading ? (
+                    <div className="flex h-[360px] items-center justify-center gap-2 text-[13px] text-text-3">
+                      <Loader2 size={15} className="animate-spin" /> Loading chart…
+                    </div>
                   ) : (
                     <div className="flex h-[360px] items-center justify-center text-[13px] text-text-3">
-                      {loading ? "Loading chart…" : "No chart data for this token"}
+                      No chart data for this token
                     </div>
                   )}
                 </SectionBoundary>
