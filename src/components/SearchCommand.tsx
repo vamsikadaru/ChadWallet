@@ -137,13 +137,22 @@ export default function SearchCommand() {
                     onClick={() => go(t.address)}
                     className="flex w-full items-center gap-3 rounded-[var(--radius-md)] px-3 py-2.5 text-left transition-colors hover:bg-bg-2/50"
                   >
-                    <TokenLogo src={t.logoURI} symbol={t.symbol} size={32} />
+                    <TokenLogo
+                      src={t.logoURI}
+                      symbol={t.symbol}
+                      size={32}
+                      className="shrink-0"
+                    />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[14px] font-semibold">{t.name}</p>
                       <p className="font-mono text-[11px] text-text-2">{t.symbol}</p>
                     </div>
-                    <span className="font-mono text-[13px]">{formatPrice(t.price)}</span>
-                    <PriceBadge value={t.priceChange24h} showArrow={false} />
+                    <div className="flex shrink-0 flex-col items-end gap-0.5">
+                      <span className="font-mono text-[13px]">
+                        {formatPrice(t.price)}
+                      </span>
+                      <PriceBadge value={t.priceChange24h} showArrow={false} />
+                    </div>
                   </button>
                 ))}
               </div>
