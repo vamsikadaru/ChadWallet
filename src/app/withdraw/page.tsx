@@ -149,7 +149,7 @@ export default function WithdrawPage() {
                     href="/"
                     className="btn-buy flex h-11 items-center rounded-[var(--radius-pill)] px-5 text-[14px] font-semibold text-white"
                   >
-                    View portfolio
+                    View profile
                   </Link>
                 </div>
               </motion.div>

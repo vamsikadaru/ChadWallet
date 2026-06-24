@@ -231,7 +231,7 @@ export default function DepositPage() {
                   href="/"
                   className="flex h-11 items-center rounded-[var(--radius-pill)] border border-border px-5 text-[14px] text-text-1 transition-colors hover:border-[var(--border-bright)]"
                 >
-                  View portfolio
+                  View profile
                 </Link>
                 <Link
                   href="/trending"
