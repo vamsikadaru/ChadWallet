@@ -1,4 +1,4 @@
-import { Wallet, TrendingUp, CandlestickChart, Activity } from "lucide-react";
+import { Wallet, TrendingUp, CandlestickChart, Activity, User } from "lucide-react";
 
 export const NAV_ITEMS = [
   { label: "Portfolio", href: "/", icon: Wallet },
@@ -10,4 +10,5 @@ export const NAV_ITEMS = [
     match: "/trade",
   },
   { label: "Activity", href: "/activity", icon: Activity },
+  { label: "Profile", href: "/profile", icon: User },
 ] as const;

@@ -88,6 +88,14 @@ body {
   line-height: 1;
 }
 
+/* ---- Blur balances (privacy toggle in the account menu) ---- */
+.blur-balances .hero-number,
+.blur-balances .balance-sensitive {
+  filter: blur(9px);
+  user-select: none;
+  pointer-events: none;
+}
+
 /* ---- Surfaces ---- */
 .glass {
   background: var(--bg-1);
