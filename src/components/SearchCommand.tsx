@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Search, X, ArrowRight } from "lucide-react";
 import TokenLogo from "./ui/TokenLogo";
 import PriceBadge from "./ui/PriceBadge";
-import { getTrendingTokens } from "@/lib/birdeye";
+import { getTrendingTokens, searchTokens } from "@/lib/birdeye";
 import { formatPrice } from "@/lib/format";
 import type { Token } from "@/lib/types";
 
@@ -18,13 +18,35 @@ export default function SearchCommand() {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [tokens, setTokens] = useState<Token[]>([]);
+  const [searchResults, setSearchResults] = useState<Token[]>([]);
+  const [searching, setSearching] = useState(false);
 
-  // Load the trending universe once when first opened.
+  // Load the trending universe once when first opened (shown when query empty).
   useEffect(() => {
     if (open && tokens.length === 0) {
       getTrendingTokens().then(setTokens);
     }
   }, [open, tokens.length]);
+
+  // Debounced live search across ALL Solana tokens — not just trending.
+  // All state updates run in deferred callbacks (no sync setState in effects).
+  useEffect(() => {
+    const term = q.trim();
+    if (!term || BASE58.test(term)) {
+      const id = setTimeout(() => {
+        setSearchResults([]);
+        setSearching(false);
+      }, 0);
+      return () => clearTimeout(id);
+    }
+    const id = setTimeout(async () => {
+      setSearching(true);
+      const hits = await searchTokens(term);
+      setSearchResults(hits);
+      setSearching(false);
+    }, 250);
+    return () => clearTimeout(id);
+  }, [q]);
 
   // Keyboard: "/" opens, Esc closes.
   useEffect(() => {
@@ -46,15 +68,16 @@ export default function SearchCommand() {
   const results = useMemo(() => {
     const term = q.trim().toLowerCase();
     if (!term) return tokens.slice(0, 8);
+    if (searchResults.length) return searchResults.slice(0, 8);
+    // Fallback: filter the loaded trending list if the API search is empty.
     return tokens
       .filter(
         (t) =>
           t.symbol.toLowerCase().includes(term) ||
-          t.name.toLowerCase().includes(term) ||
-          t.address.toLowerCase() === term
+          t.name.toLowerCase().includes(term)
       )
       .slice(0, 8);
-  }, [q, tokens]);
+  }, [q, tokens, searchResults]);
 
   const go = (address: string) => {
     setOpen(false);
@@ -126,7 +149,12 @@ export default function SearchCommand() {
                     <ArrowRight size={16} className="text-accent" />
                   </button>
                 )}
-                {results.length === 0 && !isAddress && (
+                {searching && results.length === 0 && !isAddress && (
+                  <p className="px-3 py-8 text-center text-[13px] text-text-3">
+                    Searching…
+                  </p>
+                )}
+                {!searching && results.length === 0 && !isAddress && q.trim() && (
                   <p className="px-3 py-8 text-center text-[13px] text-text-3">
                     No tokens match “{q}”.
                   </p>

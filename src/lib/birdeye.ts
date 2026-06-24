@@ -98,6 +98,68 @@ export async function getTrendingTokens(): Promise<Token[]> {
   }
 }
 
+interface SearchHit {
+  address: string;
+  name?: string;
+  symbol?: string;
+  logo_uri?: string;
+  price?: number;
+  price_change_24h_percent?: number;
+  volume_24h_usd?: number;
+  market_cap?: number;
+  fdv?: number;
+  liquidity?: number;
+  verified?: boolean;
+}
+
+/**
+ * Keyword search across all Solana tokens (name / symbol), via BirdEye's
+ * `/defi/v3/search`. Verified tokens are surfaced first; results are already
+ * ranked by 24h volume. Returns `[]` on failure so the UI can fall back.
+ */
+export async function searchTokens(keyword: string): Promise<Token[]> {
+  const q = keyword.trim();
+  if (!q) return [];
+  try {
+    const res = await fetch(
+      `${apiBase()}/api/birdeye?type=search&chain=solana&keyword=${encodeURIComponent(q)}` +
+        `&target=token&sort_by=volume_24h_usd&sort_type=desc&offset=0&limit=12`,
+      { next: { revalidate: 30 } }
+    );
+    const json = await res.json();
+    if (json?.fallback || !json?.data?.items) return [];
+    const group = (json.data.items as { type: string; result?: SearchHit[] }[]).find(
+      (it) => it.type === "token"
+    );
+    const hits = group?.result ?? [];
+    const tokens = hits
+      .filter((h) => h.address && (h.price ?? 0) > 0)
+      .map(
+        (h, i): Token => ({
+          address: h.address,
+          name: h.name ?? h.symbol ?? "",
+          symbol: h.symbol ?? "",
+          logoURI: h.logo_uri,
+          price: h.price ?? 0,
+          priceChange24h: h.price_change_24h_percent ?? 0,
+          volume24h: h.volume_24h_usd ?? 0,
+          marketCap: h.market_cap ?? h.fdv ?? 0,
+          liquidity: h.liquidity,
+          sparkline: makeSparkline(i + 1, 24, (h.price_change_24h_percent ?? 0) >= 0),
+        })
+      );
+    // Verified tokens first, preserving BirdEye's volume ordering within groups.
+    const verified = hits.filter((h) => h.verified).map((h) => h.address);
+    return tokens.sort(
+      (a, b) =>
+        (verified.includes(b.address) ? 1 : 0) -
+        (verified.includes(a.address) ? 1 : 0)
+    );
+  } catch {
+    return [];
+  }
+}
+
 export async function getTokenOverview(address: string): Promise<Token | null> {
   try {
     const res = await fetch(

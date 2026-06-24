@@ -21,6 +21,7 @@ const ENDPOINTS: Record<string, string> = {
   price: "/defi/price",
   multi_price: "/defi/multi_price",
   holder: "/defi/v3/token/holder",
+  search: "/defi/v3/search",
 };
 
 function apiKey() {
