@@ -42,10 +42,13 @@ export default function NetWorth({
   const positive = change24h >= 0;
 
   // Anchor the real history curve to the current net worth (scale by last pt).
+  // With no holdings there's nothing to chart — return empty so we don't render
+  // a misleading line scaled off the raw SOL price history.
   const series = useMemo(() => {
+    if (value <= 0) return [];
     if (history.length > 1) {
       const last = history[history.length - 1] || 1;
-      const factor = value > 0 ? value / last : 1;
+      const factor = value / last;
       return history.map((v) => v * factor);
     }
     const seed = { "24H": 11, "1W": 22, "1M": 33, "1Y": 44, ALL: 55 }[range];
@@ -104,6 +107,13 @@ export default function NetWorth({
       <div className="mt-5">
         {loading && value === 0 ? (
           <div className="h-[160px] animate-pulse rounded-[var(--radius-md)] bg-bg-2/40" />
+        ) : value <= 0 ? (
+          <div className="flex h-[160px] flex-col items-center justify-center gap-1 rounded-[var(--radius-md)] border border-dashed border-border text-center">
+            <p className="text-[13px] font-medium text-text-2">No holdings yet</p>
+            <p className="text-[12px] text-text-3">
+              Your portfolio chart appears once you fund your wallet.
+            </p>
+          </div>
         ) : (
           <NetWorthChart series={series} positive={positive} />
         )}
