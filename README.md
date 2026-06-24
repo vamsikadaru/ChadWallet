@@ -2,7 +2,7 @@
 
 A premium, non-custodial Solana trading terminal. Sign in with Google, Apple, or email, get an embedded wallet instantly, and trade trending SPL tokens with live market data — no browser extension or seed phrase required.
 
-**Live:** [chadwallet-blush.vercel.app](https://chadwallet-blush.vercel.app)
+**Live:** [my-chadwallet.vercel.app](https://my-chadwallet.vercel.app/)
 
 ## Features
 
