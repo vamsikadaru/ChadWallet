@@ -14,6 +14,18 @@ import type { Candle } from "@/lib/birdeye";
 const UP = "#14F195";
 const DOWN = "#FF4B4B";
 
+/** Auto-precision formatter so micro-cap prices like $0.000014 render correctly. */
+function smartPrice(price: number): string {
+  if (!isFinite(price) || price === 0) return "$0";
+  const abs = Math.abs(price);
+  if (abs >= 1e6) return `$${(price / 1e6).toFixed(2)}M`;
+  if (abs >= 1e3) return `$${(price / 1e3).toFixed(2)}K`;
+  if (abs >= 1) return `$${price.toFixed(4)}`;
+  // For values < 1: show enough decimal places to have 2 significant figures.
+  const dp = Math.max(2, Math.ceil(-Math.log10(abs)) + 2);
+  return `$${price.toFixed(Math.min(dp, 10))}`;
+}
+
 /**
  * Candlestick + volume chart themed to the design system. Candles come from
  * BirdEye OHLCV. `scale` lets the trade page render in price or market-cap
@@ -35,6 +47,7 @@ export default function TradingChart({
     if (!containerRef.current || !candles.length) return;
 
     const chart = createChart(containerRef.current, {
+      localization: { priceFormatter: smartPrice },
       layout: {
         background: { type: ColorType.Solid, color: "transparent" },
         textColor: "rgba(255,255,255,0.3)",
