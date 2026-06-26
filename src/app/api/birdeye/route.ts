@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { rateLimit, getIP } from "@/lib/rate-limit";
 
 const BIRDEYE = "https://public-api.birdeye.so";
 
@@ -33,10 +32,6 @@ function apiKey() {
 }
 
 export async function GET(req: Request) {
-  if (!rateLimit(`birdeye:${getIP(req)}`, 60, 60_000)) {
-    return NextResponse.json({ error: "rate_limited", fallback: true }, { status: 429 });
-  }
-
   const { searchParams } = new URL(req.url);
   const type = searchParams.get("type") ?? "trending";
   const path = ENDPOINTS[type];

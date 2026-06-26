@@ -1,13 +1,8 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { requireAuth } from '@/lib/auth-server';
-import { rateLimit, getIP } from '@/lib/rate-limit';
 
 export async function POST(req: Request) {
-  if (!rateLimit(`trades-post:${getIP(req)}`, 20, 60_000)) {
-    return NextResponse.json({ error: 'rate_limited' }, { status: 429 });
-  }
-
   const did = await requireAuth(req);
   if (!did) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
@@ -37,10 +32,6 @@ export async function POST(req: Request) {
 }
 
 export async function GET(req: Request) {
-  if (!rateLimit(`trades-get:${getIP(req)}`, 60, 60_000)) {
-    return NextResponse.json({ error: 'rate_limited' }, { status: 429 });
-  }
-
   const { searchParams } = new URL(req.url);
   const wallet_address = searchParams.get('wallet_address');
 

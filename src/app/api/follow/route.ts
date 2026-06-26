@@ -1,14 +1,9 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { requireAuth } from "@/lib/auth-server";
-import { rateLimit, getIP } from "@/lib/rate-limit";
 
 /** Follow: POST { follower, following } */
 export async function POST(req: Request) {
-  if (!rateLimit(`follow-post:${getIP(req)}`, 30, 60_000)) {
-    return NextResponse.json({ error: "rate_limited" }, { status: 429 });
-  }
-
   const did = await requireAuth(req);
   if (!did) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -35,10 +30,6 @@ export async function POST(req: Request) {
 
 /** Unfollow: DELETE ?follower=X&following=Y */
 export async function DELETE(req: Request) {
-  if (!rateLimit(`follow-delete:${getIP(req)}`, 30, 60_000)) {
-    return NextResponse.json({ error: "rate_limited" }, { status: 429 });
-  }
-
   const did = await requireAuth(req);
   if (!did) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

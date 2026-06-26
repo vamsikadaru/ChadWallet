@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { handleFromAddress } from "@/lib/handle";
 import { requireAuth } from "@/lib/auth-server";
-import { rateLimit, getIP } from "@/lib/rate-limit";
 
 interface ProfileRow {
   wallet_address: string;
@@ -35,10 +34,6 @@ async function countFollows(column: "follower" | "following", value: string) {
 }
 
 export async function GET(req: Request) {
-  if (!rateLimit(`profile-get:${getIP(req)}`, 60, 60_000)) {
-    return NextResponse.json({ error: "rate_limited" }, { status: 429 });
-  }
-
   const { searchParams } = new URL(req.url);
   const viewer = searchParams.get("viewer") ?? "";
 
@@ -122,10 +117,6 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  if (!rateLimit(`profile-post:${getIP(req)}`, 20, 60_000)) {
-    return NextResponse.json({ error: "rate_limited" }, { status: 429 });
-  }
-
   const did = await requireAuth(req);
   if (!did) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
