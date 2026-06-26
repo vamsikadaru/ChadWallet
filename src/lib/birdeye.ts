@@ -488,3 +488,96 @@ export async function getPrice(
     return null;
   }
 }
+
+import type { TokenSecurity, TopTrader } from "./types";
+
+/** Security flags for a token — mint/freeze authority, top-holder concentration. */
+export async function getTokenSecurity(
+  address: string
+): Promise<TokenSecurity | null> {
+  try {
+    const res = await fetch(
+      `${apiBase()}/api/birdeye?type=security&address=${address}`,
+      { next: { revalidate: 120 } }
+    );
+    const json = await res.json();
+    const d = json?.data;
+    if (json?.fallback || !d) return null;
+    return {
+      mintAuthority: d.mintAuthority ?? null,
+      freezeAuthority: d.freezeAuthority ?? null,
+      top10HolderPercent: Number(d.top10HolderPercent ?? d.top10UserPercent ?? 0) * 100,
+      creatorAddress: d.creatorAddress ?? undefined,
+      isToken2022: d.isToken2022 ?? false,
+      transferFeeEnabled: d.transferFeeEnable ?? false,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Newly listed tokens on Solana (BirdEye `/defi/token_new_listing`). */
+export async function getNewListings(): Promise<Token[]> {
+  try {
+    const res = await fetch(
+      `${apiBase()}/api/birdeye?type=new_listing&limit=20`,
+      { next: { revalidate: 60 } }
+    );
+    const json = await res.json();
+    const items = json?.data?.items;
+    if (json?.fallback || !Array.isArray(items)) return [];
+    return items
+      .map((it: BirdeyeRaw, i: number) => normalize(it, i))
+      .filter((t: Token) => t.price > 0);
+  } catch {
+    return [];
+  }
+}
+
+/** Top traders for a token by 24h volume (BirdEye `/defi/v2/tokens/top_traders`). */
+export async function getTopTraders(address: string): Promise<TopTrader[]> {
+  try {
+    const res = await fetch(
+      `${apiBase()}/api/birdeye?type=top_traders&address=${address}` +
+        `&time_frame=24h&sort_type=desc&sort_by=volume&limit=10`,
+      { next: { revalidate: 60 } }
+    );
+    const json = await res.json();
+    const items = json?.data?.items;
+    if (json?.fallback || !Array.isArray(items)) return [];
+    return items
+      .map(
+        (it: Record<string, unknown>): TopTrader => ({
+          address: (it.address as string) ?? (it.networkAddress as string) ?? "",
+          volume: Number(it.volume ?? 0),
+          buy: Number(it.buy ?? 0),
+          sell: Number(it.sell ?? 0),
+          pnl: Number(it.pnl ?? it.pnlUsd ?? 0),
+        })
+      )
+      .filter((t: TopTrader) => t.address);
+  } catch {
+    return [];
+  }
+}
+
+/** Curated list of major Solana ecosystem tokens with live BirdEye prices. */
+const CRYPTO_MINTS = [
+  "So11111111111111111111111111111111111111112",   // SOL
+  "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", // USDC
+  "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB", // USDT
+  "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",  // JUP
+  "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263", // BONK
+  "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm", // WIF
+  "27G8MtK7VtTcCHkpASjSDdkWWYfoqT6ggEuKidVJidD4", // JTO
+  "HZ1JovNiVvGrGs1X9Q8eBm7EiEZoZfEhRnLW92vziLkB", // PYTH
+  "orcaEKTdK7LKz57vaAYr9QeNsVEPfiu6QeMU1kektZE",  // ORCA
+  "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R", // RAY
+  "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So",  // mSOL
+  "7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs",  // wETH (Wormhole)
+];
+
+export async function getCryptoTokens(): Promise<Token[]> {
+  const results = await Promise.all(CRYPTO_MINTS.map((a) => getTokenOverview(a)));
+  return results.filter((t): t is Token => t !== null && t.price > 0);
+}

@@ -52,3 +52,20 @@ export interface Holder {
   pct: number; // % of supply
   amount: number;
 }
+
+export interface TokenSecurity {
+  mintAuthority: string | null;
+  freezeAuthority: string | null;
+  top10HolderPercent: number; // 0–100
+  creatorAddress?: string;
+  isToken2022?: boolean;
+  transferFeeEnabled?: boolean;
+}
+
+export interface TopTrader {
+  address: string;
+  volume: number;   // total USD volume
+  buy: number;      // buy trade count
+  sell: number;     // sell trade count
+  pnl: number;      // unrealised PnL USD
+}

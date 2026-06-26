@@ -13,11 +13,11 @@ import { FadeIn } from "@/components/ui/motion";
 import TradePanel from "@/components/trade/TradePanel";
 import TradeRail from "@/components/trade/TokenRail";
 import TokenStats from "@/components/trade/TokenStats";
-import { LiveTrades, HoldersList } from "@/components/trade/LiveFeed";
-import { getTokenOverview, getCandles, type Candle } from "@/lib/birdeye";
+import { LiveTrades, HoldersList, TopTradersList } from "@/components/trade/LiveFeed";
+import { getTokenOverview, getCandles, getTokenSecurity, type Candle } from "@/lib/birdeye";
 import { MOCK_TOKENS } from "@/lib/mock";
 import { formatPrice, compact, truncateAddress } from "@/lib/format";
-import type { Token } from "@/lib/types";
+import type { Token, TokenSecurity } from "@/lib/types";
 
 const TradingChart = dynamic(() => import("@/components/TradingChart"), {
   ssr: false,
@@ -26,7 +26,45 @@ const TradingChart = dynamic(() => import("@/components/TradingChart"), {
 
 const RANGES = ["1D", "1W", "1M", "3M", "1Y"] as const;
 type Range = (typeof RANGES)[number];
-type Tab = "swaps" | "holders";
+type Tab = "swaps" | "holders" | "traders";
+
+function riskLevel(sec: TokenSecurity): "safe" | "caution" | "risky" {
+  if (sec.mintAuthority) return "risky";
+  if (sec.freezeAuthority || sec.top10HolderPercent > 50) return "risky";
+  if (sec.top10HolderPercent > 25) return "caution";
+  return "safe";
+}
+
+function SecurityBadge({ sec }: { sec: TokenSecurity }) {
+  const level = riskLevel(sec);
+  const cfg = {
+    safe:    { label: "Safe",    color: "var(--success)", bg: "rgba(20,241,149,0.1)" },
+    caution: { label: "Caution", color: "#F59E0B",        bg: "rgba(245,158,11,0.1)" },
+    risky:   { label: "Risky",   color: "var(--danger)",  bg: "rgba(255,75,75,0.1)" },
+  }[level];
+
+  const lines = [
+    sec.mintAuthority   ? "⚠ Mint authority active" : "✓ No mint authority",
+    sec.freezeAuthority ? "⚠ Freeze authority active" : "✓ No freeze authority",
+    `Top-10 holders: ${sec.top10HolderPercent.toFixed(1)}%`,
+  ];
+
+  return (
+    <div className="group relative">
+      <span
+        className="inline-flex items-center gap-1 rounded-[var(--radius-pill)] px-2 py-0.5 font-mono text-[11px] font-semibold cursor-default"
+        style={{ color: cfg.color, background: cfg.bg }}
+      >
+        {level === "safe" ? "✓" : "⚠"} {cfg.label}
+      </span>
+      <div className="pointer-events-none absolute left-0 top-full z-20 mt-1.5 hidden min-w-[200px] rounded-[var(--radius-md)] border border-border bg-bg-1 p-3 text-[12px] shadow-xl group-hover:block">
+        {lines.map((l) => (
+          <p key={l} className="text-text-2">{l}</p>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function TradePage({
   params,
@@ -38,6 +76,7 @@ export default function TradePage({
     MOCK_TOKENS.find((t) => t.address === address) ?? null
   );
   const [loading, setLoading] = useState(!token);
+  const [security, setSecurity] = useState<TokenSecurity | null>(null);
   const [range, setRange] = useState<Range>("1D");
   const [denom, setDenom] = useState<"price" | "mcap">("price");
   const [tab, setTab] = useState<Tab>("swaps");
@@ -59,6 +98,12 @@ export default function TradePage({
       active = false;
       clearInterval(id);
     };
+  }, [address]);
+
+  useEffect(() => {
+    let active = true;
+    getTokenSecurity(address).then((s) => { if (active) setSecurity(s); });
+    return () => { active = false; };
   }, [address]);
 
   // Live OHLCV candles, cached per token+range. A key lands in `emptyKeys` only
@@ -163,9 +208,12 @@ export default function TradePage({
                         {display.name}
                       </h1>
                     )}
-                    <p className="font-mono text-[12px] text-text-2">
-                      {display.symbol} · {truncateAddress(display.address)}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-mono text-[12px] text-text-2">
+                        {display.symbol} · {truncateAddress(display.address)}
+                      </p>
+                      {security && <SecurityBadge sec={security} />}
+                    </div>
                   </div>
                 </div>
                 <div className="text-right">
@@ -262,7 +310,7 @@ export default function TradePage({
           <FadeIn delay={0.1}>
             <div>
               <div className="mb-3 flex items-center gap-1 rounded-[var(--radius-pill)] border border-border bg-bg-1 p-1">
-                {(["swaps", "holders"] as const).map((t) => (
+                {(["swaps", "holders", "traders"] as const).map((t) => (
                   <button
                     key={t}
                     onClick={() => setTab(t)}
@@ -277,8 +325,10 @@ export default function TradePage({
               <SectionBoundary label={tab}>
                 {tab === "swaps" ? (
                   <LiveTrades address={display.address} />
-                ) : (
+                ) : tab === "holders" ? (
                   <HoldersList address={display.address} supply={display.supply} />
+                ) : (
+                  <TopTradersList address={display.address} />
                 )}
               </SectionBoundary>
             </div>

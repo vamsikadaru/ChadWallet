@@ -3,56 +3,151 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Zap } from "lucide-react";
+import { Loader2, Zap } from "lucide-react";
 import TokenLogo from "../ui/TokenLogo";
 import PriceBadge from "../ui/PriceBadge";
 import Sparkline from "../ui/Sparkline";
 import HotStrip from "./HotStrip";
 import { FadeIn } from "../ui/motion";
 import { formatPrice, compact } from "@/lib/format";
-import { getTrendingTokens } from "@/lib/birdeye";
+import { getTrendingTokens, getNewListings, getCryptoTokens } from "@/lib/birdeye";
 import type { Token } from "@/lib/types";
 
-const FILTERS = ["All", "Gainers", "Losers", "New"] as const;
-type Filter = (typeof FILTERS)[number];
+type MainTab = "Trending" | "New" | "Crypto";
+type TrendFilter = "All" | "Gainers" | "Losers";
+
+function TokenTable({ tokens, loading, emptyMsg }: { tokens: Token[]; loading: boolean; emptyMsg?: string }) {
+  if (loading) {
+    return (
+      <div className="flex h-48 items-center justify-center gap-2 text-[13px] text-text-3">
+        <Loader2 size={14} className="animate-spin" /> Loading…
+      </div>
+    );
+  }
+  if (!tokens.length) {
+    return (
+      <div className="flex h-48 items-center justify-center text-[13px] text-text-3">
+        {emptyMsg ?? "No tokens found"}
+      </div>
+    );
+  }
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[720px] border-collapse">
+        <thead>
+          <tr className="border-b border-border">
+            {["#", "Token", "Price", "24h", "Volume", "Market Cap", "7d", ""].map((h, i) => (
+              <th
+                key={h + i}
+                className={`caps px-4 py-3 font-medium ${
+                  i >= 2 && i <= 5 ? "text-right" : "text-left"
+                } ${i === 6 ? "text-center" : ""}`}
+              >
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {tokens.map((t, i) => (
+            <motion.tr
+              key={t.address}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: Math.min(i * 0.02, 0.3) }}
+              className="group border-b border-border/60 transition-colors last:border-0 hover:bg-bg-2/40"
+            >
+              <td className="px-4 py-3 font-mono text-[13px] text-text-3">{i + 1}</td>
+              <td className="px-4 py-3">
+                <Link href={`/trade/${t.address}`} className="flex items-center gap-3">
+                  <TokenLogo src={t.logoURI} symbol={t.symbol} size={32} />
+                  <div className="min-w-0">
+                    <p className="truncate text-[14px] font-semibold transition-colors group-hover:text-accent">
+                      {t.name}
+                    </p>
+                    <p className="font-mono text-[11px] text-text-2">{t.symbol}</p>
+                  </div>
+                </Link>
+              </td>
+              <td className="px-4 py-3 text-right font-mono text-[13px]">{formatPrice(t.price)}</td>
+              <td className="px-4 py-3 text-right">
+                <PriceBadge value={t.priceChange24h} showArrow={false} />
+              </td>
+              <td className="px-4 py-3 text-right font-mono text-[13px] text-text-2">
+                ${compact(t.volume24h)}
+              </td>
+              <td className="px-4 py-3 text-right font-mono text-[13px] text-text-2">
+                ${compact(t.marketCap)}
+              </td>
+              <td className="px-4 py-3">
+                <div className="mx-auto w-[88px]">
+                  <Sparkline data={t.sparkline ?? []} positive={t.priceChange24h >= 0} height={32} />
+                </div>
+              </td>
+              <td className="px-4 py-3 text-right">
+                <Link
+                  href={`/trade/${t.address}`}
+                  className="btn-buy inline-flex items-center gap-1 rounded-[var(--radius-pill)] px-3 py-1.5 text-[12px] font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100"
+                >
+                  <Zap size={12} /> Buy
+                </Link>
+              </td>
+            </motion.tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 export default function TrendingView({ initial }: { initial: Token[] }) {
-  const [tokens, setTokens] = useState<Token[]>(initial);
-  const [filter, setFilter] = useState<Filter>("All");
+  const [trendingTokens, setTrendingTokens] = useState<Token[]>(initial);
+  const [newTokens, setNewTokens] = useState<Token[]>([]);
+  const [cryptoTokens, setCryptoTokens] = useState<Token[]>([]);
+
+  const [mainTab, setMainTab] = useState<MainTab>("Trending");
+  const [trendFilter, setTrendFilter] = useState<TrendFilter>("All");
+  const [newLoading, setNewLoading] = useState(false);
+  const [cryptoLoading, setCryptoLoading] = useState(false);
   const [pulse, setPulse] = useState(false);
   const firstLoad = useRef(true);
 
-  // Refresh every 30s with a subtle pulse on update.
+  // Auto-refresh trending every 30s.
   useEffect(() => {
-    if (firstLoad.current) {
-      firstLoad.current = false;
-      return;
-    }
+    if (firstLoad.current) { firstLoad.current = false; return; }
     const id = setInterval(async () => {
       const next = await getTrendingTokens();
-      setTokens(next);
+      setTrendingTokens(next);
       setPulse(true);
       setTimeout(() => setPulse(false), 1200);
     }, 30000);
     return () => clearInterval(id);
   }, []);
 
-  const filtered = useMemo(() => {
-    switch (filter) {
+  // Fetch New listings when that tab is first opened.
+  useEffect(() => {
+    if (mainTab !== "New" || newTokens.length) return;
+    setNewLoading(true);
+    getNewListings().then((t) => { setNewTokens(t); setNewLoading(false); });
+  }, [mainTab, newTokens.length]);
+
+  // Fetch Crypto tokens when that tab is first opened.
+  useEffect(() => {
+    if (mainTab !== "Crypto" || cryptoTokens.length) return;
+    setCryptoLoading(true);
+    getCryptoTokens().then((t) => { setCryptoTokens(t); setCryptoLoading(false); });
+  }, [mainTab, cryptoTokens.length]);
+
+  const filteredTrending = useMemo(() => {
+    switch (trendFilter) {
       case "Gainers":
-        return [...tokens]
-          .filter((t) => t.priceChange24h >= 0)
-          .sort((a, b) => b.priceChange24h - a.priceChange24h);
+        return [...trendingTokens].filter((t) => t.priceChange24h >= 0).sort((a, b) => b.priceChange24h - a.priceChange24h);
       case "Losers":
-        return [...tokens]
-          .filter((t) => t.priceChange24h < 0)
-          .sort((a, b) => a.priceChange24h - b.priceChange24h);
-      case "New":
-        return [...tokens].sort((a, b) => (a.marketCap ?? 0) - (b.marketCap ?? 0));
+        return [...trendingTokens].filter((t) => t.priceChange24h < 0).sort((a, b) => a.priceChange24h - b.priceChange24h);
       default:
-        return tokens;
+        return trendingTokens;
     }
-  }, [tokens, filter]);
+  }, [trendingTokens, trendFilter]);
 
   return (
     <div className="space-y-7">
@@ -61,121 +156,74 @@ export default function TrendingView({ initial }: { initial: Token[] }) {
           <div>
             <div className="flex items-center gap-2">
               <p className="caps">Markets</p>
-              <span
-                className={`live-dot h-1.5 w-1.5 rounded-full transition-colors ${
-                  pulse ? "bg-accent-2" : "bg-success"
-                }`}
-              />
+              <span className={`live-dot h-1.5 w-1.5 rounded-full transition-colors ${pulse ? "bg-accent-2" : "bg-success"}`} />
             </div>
             <h1 className="font-display text-[28px] font-bold tracking-tight">
-              Trending on Solana
+              {mainTab === "Crypto" ? "Major Tokens" : mainTab === "New" ? "New Listings" : "Trending on Solana"}
             </h1>
           </div>
         </div>
       </FadeIn>
 
-      <FadeIn delay={0.05}>
-        <HotStrip tokens={tokens} />
-      </FadeIn>
+      {mainTab === "Trending" && (
+        <FadeIn delay={0.05}>
+          <HotStrip tokens={trendingTokens} />
+        </FadeIn>
+      )}
 
       <FadeIn delay={0.1}>
+        {/* Main tab bar */}
         <div className="flex items-center gap-1 rounded-[var(--radius-pill)] border border-border bg-bg-1 p-1">
-          {FILTERS.map((f) => (
+          {(["Trending", "New", "Crypto"] as MainTab[]).map((t) => (
             <button
-              key={f}
-              onClick={() => setFilter(f)}
+              key={t}
+              onClick={() => setMainTab(t)}
               className={`rounded-[var(--radius-pill)] px-4 py-1.5 text-[13px] font-medium transition-colors ${
-                filter === f ? "bg-bg-2 text-text-1" : "text-text-2 hover:text-text-1"
+                mainTab === t ? "bg-bg-2 text-text-1" : "text-text-2 hover:text-text-1"
               }`}
             >
-              {f}
+              {t}
             </button>
           ))}
         </div>
+
+        {/* Sub-filters for Trending only */}
+        {mainTab === "Trending" && (
+          <div className="mt-2 flex items-center gap-1">
+            {(["All", "Gainers", "Losers"] as TrendFilter[]).map((f) => (
+              <button
+                key={f}
+                onClick={() => setTrendFilter(f)}
+                className={`rounded-[var(--radius-pill)] px-3 py-1 text-[12px] font-medium transition-colors ${
+                  trendFilter === f ? "text-text-1 underline underline-offset-4" : "text-text-3 hover:text-text-2"
+                }`}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+        )}
       </FadeIn>
 
       <FadeIn delay={0.15}>
         <div className="glass overflow-hidden p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] border-collapse">
-              <thead>
-                <tr className="border-b border-border">
-                  {["#", "Token", "Price", "24h", "Volume", "Market Cap", "7d", ""].map(
-                    (h, i) => (
-                      <th
-                        key={h + i}
-                        className={`caps px-4 py-3 font-medium ${
-                          i >= 2 && i <= 5 ? "text-right" : "text-left"
-                        } ${i === 6 ? "text-center" : ""}`}
-                      >
-                        {h}
-                      </th>
-                    )
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((t, i) => (
-                  <motion.tr
-                    key={t.address}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: Math.min(i * 0.02, 0.3) }}
-                    className="group border-b border-border/60 transition-colors last:border-0 hover:bg-bg-2/40"
-                  >
-                    <td className="px-4 py-3 font-mono text-[13px] text-text-3">
-                      {i + 1}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Link
-                        href={`/trade/${t.address}`}
-                        className="flex items-center gap-3"
-                      >
-                        <TokenLogo src={t.logoURI} symbol={t.symbol} size={32} />
-                        <div className="min-w-0">
-                          <p className="truncate text-[14px] font-semibold transition-colors group-hover:text-accent">
-                            {t.name}
-                          </p>
-                          <p className="font-mono text-[11px] text-text-2">
-                            {t.symbol}
-                          </p>
-                        </div>
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono text-[13px]">
-                      {formatPrice(t.price)}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <PriceBadge value={t.priceChange24h} showArrow={false} />
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono text-[13px] text-text-2">
-                      ${compact(t.volume24h)}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono text-[13px] text-text-2">
-                      ${compact(t.marketCap)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="mx-auto w-[88px]">
-                        <Sparkline
-                          data={t.sparkline ?? []}
-                          positive={t.priceChange24h >= 0}
-                          height={32}
-                        />
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <Link
-                        href={`/trade/${t.address}`}
-                        className="btn-buy inline-flex items-center gap-1 rounded-[var(--radius-pill)] px-3 py-1.5 text-[12px] font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100"
-                      >
-                        <Zap size={12} /> Buy
-                      </Link>
-                    </td>
-                  </motion.tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {mainTab === "Trending" && (
+            <TokenTable tokens={filteredTrending} loading={false} />
+          )}
+          {mainTab === "New" && (
+            <TokenTable
+              tokens={newTokens}
+              loading={newLoading}
+              emptyMsg="New listing data unavailable"
+            />
+          )}
+          {mainTab === "Crypto" && (
+            <TokenTable
+              tokens={cryptoTokens}
+              loading={cryptoLoading}
+              emptyMsg="Could not load major tokens"
+            />
+          )}
         </div>
       </FadeIn>
     </div>
