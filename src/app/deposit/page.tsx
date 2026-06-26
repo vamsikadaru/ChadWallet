@@ -5,8 +5,9 @@ import { usePrivy } from "@privy-io/react-auth";
 import { useSolanaWallet } from "@/lib/solana";
 import QRCode from "react-qr-code";
 import { AnimatePresence, motion } from "framer-motion";
-import { Copy, Check, ChevronRight, ChevronLeft, Wallet } from "lucide-react";
+import { Copy, Check, ChevronRight, ChevronLeft, Wallet, X } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { FadeIn, EASE } from "@/components/ui/motion";
 import { truncateAddress } from "@/lib/format";
 
@@ -19,6 +20,7 @@ const NETWORKS = [
 const STEPS = ["Network", "Address", "Done"];
 
 export default function DepositPage() {
+  const router = useRouter();
   const { user } = usePrivy();
   const { address: solAddress } = useSolanaWallet();
   const address = solAddress ?? user?.wallet?.address ?? "";
@@ -35,8 +37,19 @@ export default function DepositPage() {
   return (
     <div className="mx-auto max-w-xl space-y-7">
       <FadeIn>
-        <p className="caps">Add funds</p>
-        <h1 className="font-display text-[28px] font-bold tracking-tight">Deposit</h1>
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="caps">Add funds</p>
+            <h1 className="font-display text-[28px] font-bold tracking-tight">Deposit</h1>
+          </div>
+          <button
+            onClick={() => router.back()}
+            aria-label="Close"
+            className="mt-1 grid h-9 w-9 place-items-center rounded-full border border-border text-text-2 transition-colors hover:border-[var(--border-bright)] hover:text-text-1"
+          >
+            <X size={16} />
+          </button>
+        </div>
       </FadeIn>
 
       {/* Step indicator */}

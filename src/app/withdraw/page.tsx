@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, Loader2, ArrowUpFromLine } from "lucide-react";
+import { Check, Loader2, ArrowUpFromLine, X } from "lucide-react";
 import { FadeIn, EASE } from "@/components/ui/motion";
 import { useSolanaWallet } from "@/lib/solana";
 import { getTokenOverview } from "@/lib/birdeye";
@@ -16,6 +17,7 @@ const FEE_BUFFER = 0.000015; // leave room for the network fee
 type Status = "idle" | "loading" | "success" | "error";
 
 export default function WithdrawPage() {
+  const router = useRouter();
   const { address, sendSerialized } = useSolanaWallet();
   const [balance, setBalance] = useState(0);
   const [solPrice, setSolPrice] = useState(0);
@@ -109,8 +111,19 @@ export default function WithdrawPage() {
   return (
     <div className="mx-auto max-w-xl space-y-7">
       <FadeIn>
-        <p className="caps">Move funds out</p>
-        <h1 className="font-display text-[28px] font-bold tracking-tight">Withdraw</h1>
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="caps">Move funds out</p>
+            <h1 className="font-display text-[28px] font-bold tracking-tight">Withdraw</h1>
+          </div>
+          <button
+            onClick={() => router.back()}
+            aria-label="Close"
+            className="mt-1 grid h-9 w-9 place-items-center rounded-full border border-border text-text-2 transition-colors hover:border-[var(--border-bright)] hover:text-text-1"
+          >
+            <X size={16} />
+          </button>
+        </div>
       </FadeIn>
 
       <FadeIn delay={0.05}>
