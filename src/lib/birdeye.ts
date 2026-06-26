@@ -561,23 +561,59 @@ export async function getTopTraders(address: string): Promise<TopTrader[]> {
   }
 }
 
-/** Curated list of major Solana ecosystem tokens with live BirdEye prices. */
-const CRYPTO_MINTS = [
-  "So11111111111111111111111111111111111111112",   // SOL
-  "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", // USDC
-  "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB", // USDT
-  "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",  // JUP
-  "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263", // BONK
-  "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm", // WIF
-  "27G8MtK7VtTcCHkpASjSDdkWWYfoqT6ggEuKidVJidD4", // JTO
-  "HZ1JovNiVvGrGs1X9Q8eBm7EiEZoZfEhRnLW92vziLkB", // PYTH
-  "orcaEKTdK7LKz57vaAYr9QeNsVEPfiu6QeMU1kektZE",  // ORCA
-  "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R", // RAY
-  "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So",  // mSOL
-  "7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs",  // wETH (Wormhole)
+/** Curated major Solana tokens — static metadata so they always render,
+ *  live price/stats overlaid from BirdEye when available. */
+const CRYPTO_LIST: { address: string; symbol: string; name: string; logoURI: string }[] = [
+  { address: "So11111111111111111111111111111111111111112", symbol: "SOL", name: "Solana", logoURI: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png" },
+  { address: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", symbol: "USDC", name: "USD Coin", logoURI: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png" },
+  { address: "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB", symbol: "USDT", name: "Tether", logoURI: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB/logo.svg" },
+  { address: "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN", symbol: "JUP", name: "Jupiter", logoURI: "https://static.jup.ag/jup/icon.png" },
+  { address: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263", symbol: "BONK", name: "Bonk", logoURI: "https://arweave.net/hQiPZOsRZXGXBJd_82PhVdlM_hACsT_q6wqwf5cSY7I" },
+  { address: "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm", symbol: "WIF", name: "dogwifhat", logoURI: "https://bafkreibk3covs5ltyqxa272uodhculbr6kea6betidfwy3ajsav2vjzyum.ipfs.nftstorage.link" },
+  { address: "27G8MtK7VtTcCHkpASjSDdkWWYfoqT6ggEuKidVJidD4", symbol: "JTO", name: "Jito", logoURI: "https://metadata.jito.network/token/jto/image" },
+  { address: "HZ1JovNiVvGrGs1X9Q8eBm7EiEZoZfEhRnLW92vziLkB", symbol: "PYTH", name: "Pyth Network", logoURI: "https://pyth.network/token.svg" },
+  { address: "orcaEKTdK7LKz57vaAYr9QeNsVEPfiu6QeMU1kektZE", symbol: "ORCA", name: "Orca", logoURI: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/orcaEKTdK7LKz57vaAYr9QeNsVEPfiu6QeMU1kektZE/logo.png" },
+  { address: "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R", symbol: "RAY", name: "Raydium", logoURI: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R/logo.png" },
+  { address: "mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So", symbol: "mSOL", name: "Marinade Staked SOL", logoURI: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So/logo.png" },
+  { address: "7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs", symbol: "ETH", name: "Wrapped Ethereum", logoURI: "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs/logo.png" },
 ];
 
+/**
+ * Fetches all 12 curated tokens in batches of 3 to stay within BirdEye's free
+ * rate limit. If `getTokenOverview` is rate-limited for an entry, falls back to
+ * a lightweight `getPrice` call so static metadata still renders with live price.
+ */
 export async function getCryptoTokens(): Promise<Token[]> {
-  const results = await Promise.all(CRYPTO_MINTS.map((a) => getTokenOverview(a)));
-  return results.filter((t): t is Token => t !== null && t.price > 0);
+  const results: Token[] = [];
+  const batchSize = 3;
+
+  for (let i = 0; i < CRYPTO_LIST.length; i += batchSize) {
+    const batch = CRYPTO_LIST.slice(i, i + batchSize);
+    const settled = await Promise.allSettled(batch.map((c) => getTokenOverview(c.address)));
+
+    for (let j = 0; j < batch.length; j++) {
+      const base = batch[j];
+      const r = settled[j];
+      if (r.status === "fulfilled" && r.value && r.value.price > 0) {
+        results.push(r.value);
+      } else {
+        // Rate-limited or unsupported — fall back to static metadata + price call.
+        const p = await getPrice(base.address);
+        results.push({
+          ...base,
+          price: p?.value ?? 0,
+          priceChange24h: p?.change24h ?? 0,
+          volume24h: 0,
+          marketCap: 0,
+          sparkline: makeSparkline(i + j + 1, 32, (p?.change24h ?? 0) >= 0),
+        });
+      }
+    }
+
+    if (i + batchSize < CRYPTO_LIST.length) {
+      await new Promise((res) => setTimeout(res, 150));
+    }
+  }
+
+  return results.filter((t) => t.price > 0);
 }

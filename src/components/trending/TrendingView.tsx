@@ -10,10 +10,10 @@ import Sparkline from "../ui/Sparkline";
 import HotStrip from "./HotStrip";
 import { FadeIn } from "../ui/motion";
 import { formatPrice, compact } from "@/lib/format";
-import { getTrendingTokens, getNewListings, getCryptoTokens } from "@/lib/birdeye";
+import { getTrendingTokens, getCryptoTokens } from "@/lib/birdeye";
 import type { Token } from "@/lib/types";
 
-type MainTab = "Trending" | "New" | "Crypto";
+type MainTab = "Trending" | "Crypto";
 type TrendFilter = "All" | "Gainers" | "Losers";
 
 function TokenTable({ tokens, loading, emptyMsg }: { tokens: Token[]; loading: boolean; emptyMsg?: string }) {
@@ -74,10 +74,10 @@ function TokenTable({ tokens, loading, emptyMsg }: { tokens: Token[]; loading: b
                 <PriceBadge value={t.priceChange24h} showArrow={false} />
               </td>
               <td className="px-4 py-3 text-right font-mono text-[13px] text-text-2">
-                ${compact(t.volume24h)}
+                {t.volume24h > 0 ? `$${compact(t.volume24h)}` : "—"}
               </td>
               <td className="px-4 py-3 text-right font-mono text-[13px] text-text-2">
-                ${compact(t.marketCap)}
+                {t.marketCap > 0 ? `$${compact(t.marketCap)}` : "—"}
               </td>
               <td className="px-4 py-3">
                 <div className="mx-auto w-[88px]">
@@ -102,12 +102,9 @@ function TokenTable({ tokens, loading, emptyMsg }: { tokens: Token[]; loading: b
 
 export default function TrendingView({ initial }: { initial: Token[] }) {
   const [trendingTokens, setTrendingTokens] = useState<Token[]>(initial);
-  const [newTokens, setNewTokens] = useState<Token[]>([]);
   const [cryptoTokens, setCryptoTokens] = useState<Token[]>([]);
-
   const [mainTab, setMainTab] = useState<MainTab>("Trending");
   const [trendFilter, setTrendFilter] = useState<TrendFilter>("All");
-  const [newLoading, setNewLoading] = useState(false);
   const [cryptoLoading, setCryptoLoading] = useState(false);
   const [pulse, setPulse] = useState(false);
   const firstLoad = useRef(true);
@@ -124,14 +121,7 @@ export default function TrendingView({ initial }: { initial: Token[] }) {
     return () => clearInterval(id);
   }, []);
 
-  // Fetch New listings when that tab is first opened.
-  useEffect(() => {
-    if (mainTab !== "New" || newTokens.length) return;
-    setNewLoading(true);
-    getNewListings().then((t) => { setNewTokens(t); setNewLoading(false); });
-  }, [mainTab, newTokens.length]);
-
-  // Fetch Crypto tokens when that tab is first opened.
+  // Fetch Crypto tokens the first time that tab is opened.
   useEffect(() => {
     if (mainTab !== "Crypto" || cryptoTokens.length) return;
     setCryptoLoading(true);
@@ -159,7 +149,7 @@ export default function TrendingView({ initial }: { initial: Token[] }) {
               <span className={`live-dot h-1.5 w-1.5 rounded-full transition-colors ${pulse ? "bg-accent-2" : "bg-success"}`} />
             </div>
             <h1 className="font-display text-[28px] font-bold tracking-tight">
-              {mainTab === "Crypto" ? "Major Tokens" : mainTab === "New" ? "New Listings" : "Trending on Solana"}
+              {mainTab === "Crypto" ? "Major Tokens" : "Trending on Solana"}
             </h1>
           </div>
         </div>
@@ -172,9 +162,8 @@ export default function TrendingView({ initial }: { initial: Token[] }) {
       )}
 
       <FadeIn delay={0.1}>
-        {/* Main tab bar */}
         <div className="flex items-center gap-1 rounded-[var(--radius-pill)] border border-border bg-bg-1 p-1">
-          {(["Trending", "New", "Crypto"] as MainTab[]).map((t) => (
+          {(["Trending", "Crypto"] as MainTab[]).map((t) => (
             <button
               key={t}
               onClick={() => setMainTab(t)}
@@ -187,7 +176,6 @@ export default function TrendingView({ initial }: { initial: Token[] }) {
           ))}
         </div>
 
-        {/* Sub-filters for Trending only */}
         {mainTab === "Trending" && (
           <div className="mt-2 flex items-center gap-1">
             {(["All", "Gainers", "Losers"] as TrendFilter[]).map((f) => (
@@ -207,22 +195,10 @@ export default function TrendingView({ initial }: { initial: Token[] }) {
 
       <FadeIn delay={0.15}>
         <div className="glass overflow-hidden p-0">
-          {mainTab === "Trending" && (
+          {mainTab === "Trending" ? (
             <TokenTable tokens={filteredTrending} loading={false} />
-          )}
-          {mainTab === "New" && (
-            <TokenTable
-              tokens={newTokens}
-              loading={newLoading}
-              emptyMsg="New listing data unavailable"
-            />
-          )}
-          {mainTab === "Crypto" && (
-            <TokenTable
-              tokens={cryptoTokens}
-              loading={cryptoLoading}
-              emptyMsg="Could not load major tokens"
-            />
+          ) : (
+            <TokenTable tokens={cryptoTokens} loading={cryptoLoading} emptyMsg="Could not load major tokens" />
           )}
         </div>
       </FadeIn>

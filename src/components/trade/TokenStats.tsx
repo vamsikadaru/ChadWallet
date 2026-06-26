@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { compact } from "@/lib/format";
-import { getTokenSecurity } from "@/lib/birdeye";
-import type { Token, TokenSecurity } from "@/lib/types";
+import type { Token } from "@/lib/types";
 
 /** A two-sided proportional bar (e.g. buys vs sells). */
 function SplitBar({
@@ -42,13 +41,6 @@ const PERIODS = [
 
 export default function TokenStats({ token }: { token: Token }) {
   const [expanded, setExpanded] = useState(false);
-  const [security, setSecurity] = useState<TokenSecurity | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    getTokenSecurity(token.address).then((s) => { if (active) setSecurity(s); });
-    return () => { active = false; };
-  }, [token.address]);
 
   const perf: Record<string, number | undefined> = {
     "5m": token.change5m,
@@ -145,52 +137,6 @@ export default function TokenStats({ token }: { token: Token }) {
         </div>
       </div>
 
-      {/* Security section */}
-      {security && (
-        <div className="mt-5 space-y-2 border-t border-border pt-4">
-          <p className="caps">Security</p>
-          {[
-            {
-              label: "Mint authority",
-              ok: !security.mintAuthority,
-              okText: "None",
-              badText: "Active — can print tokens",
-            },
-            {
-              label: "Freeze authority",
-              ok: !security.freezeAuthority,
-              okText: "None",
-              badText: "Active — can freeze wallets",
-            },
-          ].map((row) => (
-            <div key={row.label} className="flex items-center justify-between">
-              <span className="text-[12px] text-text-2">{row.label}</span>
-              <span
-                className="font-mono text-[12px] font-medium"
-                style={{ color: row.ok ? "var(--success)" : "var(--danger)" }}
-              >
-                {row.ok ? row.okText : row.badText}
-              </span>
-            </div>
-          ))}
-          <div className="flex items-center justify-between">
-            <span className="text-[12px] text-text-2">Top-10 holders</span>
-            <span
-              className="font-mono text-[12px] font-medium"
-              style={{
-                color:
-                  security.top10HolderPercent > 50
-                    ? "var(--danger)"
-                    : security.top10HolderPercent > 25
-                      ? "#F59E0B"
-                      : "var(--success)",
-              }}
-            >
-              {security.top10HolderPercent.toFixed(1)}%
-            </span>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
