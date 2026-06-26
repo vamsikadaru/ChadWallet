@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Loader2, Zap } from "lucide-react";
@@ -100,18 +100,17 @@ function TokenTable({ tokens, loading, emptyMsg }: { tokens: Token[]; loading: b
   );
 }
 
-export default function TrendingView({ initial }: { initial: Token[] }) {
+export default function TrendingView({ initial = [] }: { initial?: Token[] }) {
   const [trendingTokens, setTrendingTokens] = useState<Token[]>(initial);
   const [cryptoTokens, setCryptoTokens] = useState<Token[]>([]);
   const [mainTab, setMainTab] = useState<MainTab>("Trending");
   const [trendFilter, setTrendFilter] = useState<TrendFilter>("All");
   const [cryptoLoading, setCryptoLoading] = useState(false);
   const [pulse, setPulse] = useState(false);
-  const firstLoad = useRef(true);
 
-  // Auto-refresh trending every 30s.
+  // Fetch on mount, then refresh every 30s.
   useEffect(() => {
-    if (firstLoad.current) { firstLoad.current = false; return; }
+    getTrendingTokens().then(setTrendingTokens);
     const id = setInterval(async () => {
       const next = await getTrendingTokens();
       setTrendingTokens(next);
