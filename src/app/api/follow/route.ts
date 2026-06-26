@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { requireAuth } from "@/lib/auth-server";
 
 /** Follow: POST { follower, following } */
 export async function POST(req: Request) {
+  const did = await requireAuth(req);
+  if (!did) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   try {
     const { follower, following } = await req.json();
     if (!follower || !following || follower === following) {
@@ -26,6 +30,9 @@ export async function POST(req: Request) {
 
 /** Unfollow: DELETE ?follower=X&following=Y */
 export async function DELETE(req: Request) {
+  const did = await requireAuth(req);
+  if (!did) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   try {
     const { searchParams } = new URL(req.url);
     const follower = searchParams.get("follower");

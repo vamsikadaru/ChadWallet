@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { usePrivy } from "@privy-io/react-auth";
 import { useSolanaWallet } from "./solana";
 
 export interface Profile {
@@ -20,12 +21,17 @@ export interface TopTrader extends Profile {
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
+function authHeaders(token: string | null) {
+  return token ? { ...JSON_HEADERS, Authorization: `Bearer ${token}` } : JSON_HEADERS;
+}
+
 /**
  * Loads the signed-in user's profile + follow counts and the seeded
  * "top traders" rail, and exposes optimistic follow/unfollow + edit actions.
  */
 export function useProfile() {
   const { address } = useSolanaWallet();
+  const { getAccessToken } = usePrivy();
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [followers, setFollowers] = useState(0);
@@ -39,10 +45,12 @@ export function useProfile() {
     let active = true;
 
     (async () => {
+      const token = await getAccessToken();
+
       // Make sure this wallet has a profile row, then load everything.
       await fetch("/api/profile", {
         method: "POST",
-        headers: JSON_HEADERS,
+        headers: authHeaders(token),
         body: JSON.stringify({ wallet_address: address }),
       }).catch(() => {});
 
@@ -67,7 +75,7 @@ export function useProfile() {
     return () => {
       active = false;
     };
-  }, [address]);
+  }, [address, getAccessToken]);
 
   const toggleFollow = useCallback(
     async (targetWallet: string, makeFollow: boolean) => {
@@ -87,37 +95,39 @@ export function useProfile() {
       setFollowing((n) => Math.max(0, n + (makeFollow ? 1 : -1)));
 
       try {
+        const token = await getAccessToken();
         if (makeFollow) {
           await fetch("/api/follow", {
             method: "POST",
-            headers: JSON_HEADERS,
+            headers: authHeaders(token),
             body: JSON.stringify({ follower: address, following: targetWallet }),
           });
         } else {
           await fetch(
             `/api/follow?follower=${address}&following=${targetWallet}`,
-            { method: "DELETE" }
+            { method: "DELETE", headers: authHeaders(token) }
           );
         }
       } catch {
         /* optimistic state stays; next load reconciles */
       }
     },
-    [address]
+    [address, getAccessToken]
   );
 
   const updateProfile = useCallback(
     async (username: string, bio: string) => {
       if (!address) return;
+      const token = await getAccessToken();
       const res = await fetch("/api/profile", {
         method: "POST",
-        headers: JSON_HEADERS,
+        headers: authHeaders(token),
         body: JSON.stringify({ wallet_address: address, username, bio }),
       });
       const j = await res.json();
       if (j.profile) setProfile(j.profile);
     },
-    [address]
+    [address, getAccessToken]
   );
 
   return {

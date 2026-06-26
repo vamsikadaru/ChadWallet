@@ -22,7 +22,7 @@ function base64ToBytes(b64: string): Uint8Array {
 }
 
 export default function TradePanel({ token }: { token: Token }) {
-  const { authenticated, login } = usePrivy();
+  const { authenticated, login, getAccessToken } = usePrivy();
   const { wallet, address, sendSerialized } = useSolanaWallet();
 
   const [side, setSide] = useState<"buy" | "sell">("buy");
@@ -135,9 +135,9 @@ export default function TradePanel({ token }: { token: Token }) {
           await sendSerialized(base64ToBytes(swapTransaction));
         }
         // Log to Supabase (best-effort).
-        fetch("/api/trades", {
+        getAccessToken().then((tok) => fetch("/api/trades", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...(tok ? { Authorization: `Bearer ${tok}` } : {}) },
           body: JSON.stringify({
             wallet_address: address,
             type: side,
@@ -145,7 +145,7 @@ export default function TradePanel({ token }: { token: Token }) {
             amount_sol: side === "buy" ? Number(amount) : Number(quote),
             amount_token: side === "buy" ? Number(quote) : Number(amount),
           }),
-        }).catch(() => {});
+        })).catch(() => {});
       } else {
         // Demo mode — simulate confirmation latency.
         await new Promise((r) => setTimeout(r, 900));

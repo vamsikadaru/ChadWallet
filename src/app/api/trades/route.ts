@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { requireAuth } from '@/lib/auth-server';
 
 export async function POST(req: Request) {
+  const did = await requireAuth(req);
+  if (!did) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   try {
     const body = await req.json();
     const { wallet_address, type, token_address, amount_sol, amount_token } = body;
