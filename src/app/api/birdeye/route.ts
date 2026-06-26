@@ -29,11 +29,7 @@ const ENDPOINTS: Record<string, string> = {
 };
 
 function apiKey() {
-  return (
-    process.env.BIRDEYE_API_KEY ||
-    process.env.NEXT_PUBLIC_BIRDEYE_API_KEY ||
-    ""
-  );
+  return process.env.BIRDEYE_API_KEY ?? "";
 }
 
 export async function GET(req: Request) {
