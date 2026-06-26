@@ -257,6 +257,32 @@ export async function getMultiPrice(
   }
 }
 
+/** Live price + 24h change for many mints in one call. */
+export async function getMultiQuote(
+  addresses: string[]
+): Promise<Record<string, { value: number; change24h: number }>> {
+  if (!addresses.length) return {};
+  try {
+    const res = await fetch(
+      `${apiBase()}/api/birdeye?type=multi_price&list_address=${addresses.join(",")}`,
+      { next: { revalidate: 20 } }
+    );
+    const json = await res.json();
+    if (json?.fallback || !json?.data) return {};
+    const out: Record<string, { value: number; change24h: number }> = {};
+    for (const [mint, v] of Object.entries(
+      json.data as Record<string, { value?: number; priceChange24h?: number }>
+    )) {
+      if (v && typeof v.value === "number") {
+        out[mint] = { value: v.value, change24h: v.priceChange24h ?? 0 };
+      }
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
 export interface Candle {
   time: number; // unix seconds
   open: number;

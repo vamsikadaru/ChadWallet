@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { getPrice } from "@/lib/birdeye";
+import { getMultiQuote } from "@/lib/birdeye";
 import { formatPrice, formatPct } from "@/lib/format";
 
 /** Solana-native majors shown live in the desktop status bar. */
@@ -25,15 +25,9 @@ export default function MajorsTicker() {
   useEffect(() => {
     let active = true;
     const load = async () => {
-      const entries = await Promise.all(
-        MAJORS.map(async (m) => [m.mint, await getPrice(m.mint)] as const)
-      );
+      const data = await getMultiQuote(MAJORS.map((m) => m.mint));
       if (!active) return;
-      setQuotes((prev) => {
-        const next = { ...prev };
-        for (const [mint, q] of entries) if (q) next[mint] = q;
-        return next;
-      });
+      setQuotes((prev) => ({ ...prev, ...data }));
     };
     load();
     const id = setInterval(load, 60000);
