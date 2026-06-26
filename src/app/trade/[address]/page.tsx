@@ -13,7 +13,7 @@ import { FadeIn } from "@/components/ui/motion";
 import TradePanel from "@/components/trade/TradePanel";
 import TradeRail from "@/components/trade/TokenRail";
 import TokenStats from "@/components/trade/TokenStats";
-import { LiveTrades, HoldersList, TopTradersList } from "@/components/trade/LiveFeed";
+import { LiveTrades, HoldersList } from "@/components/trade/LiveFeed";
 import { getTokenOverview, getCandles, getTokenSecurity, type Candle } from "@/lib/birdeye";
 import { MOCK_TOKENS } from "@/lib/mock";
 import { formatPrice, compact, truncateAddress } from "@/lib/format";
@@ -26,7 +26,7 @@ const TradingChart = dynamic(() => import("@/components/TradingChart"), {
 
 const RANGES = ["1D", "1W", "1M", "3M", "1Y"] as const;
 type Range = (typeof RANGES)[number];
-type Tab = "swaps" | "holders" | "traders";
+type Tab = "swaps" | "holders";
 
 function riskLevel(sec: TokenSecurity): "safe" | "caution" | "risky" {
   if (sec.mintAuthority) return "risky";
@@ -310,7 +310,7 @@ export default function TradePage({
           <FadeIn delay={0.1}>
             <div>
               <div className="mb-3 flex items-center gap-1 rounded-[var(--radius-pill)] border border-border bg-bg-1 p-1">
-                {(["swaps", "holders", "traders"] as const).map((t) => (
+                {(["swaps", "holders"] as const).map((t) => (
                   <button
                     key={t}
                     onClick={() => setTab(t)}
@@ -325,10 +325,8 @@ export default function TradePage({
               <SectionBoundary label={tab}>
                 {tab === "swaps" ? (
                   <LiveTrades address={display.address} />
-                ) : tab === "holders" ? (
-                  <HoldersList address={display.address} supply={display.supply} />
                 ) : (
-                  <TopTradersList address={display.address} />
+                  <HoldersList address={display.address} supply={display.supply} />
                 )}
               </SectionBoundary>
             </div>
