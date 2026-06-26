@@ -7,13 +7,15 @@ A premium, non-custodial Solana trading terminal. Sign in with Google, Apple, or
 ## Features
 
 - **Embedded wallet** — passwordless sign-in and a non-custodial Solana wallet via [Privy](https://privy.io) (Google / Apple / email / external wallets).
-- **Live markets** — trending tokens, prices, market caps, and 24h moves powered by [BirdEye](https://birdeye.so), proxied server-side so the API key never ships to the client.
-- **Trading terminal** — real candlestick + volume charts ([lightweight-charts](https://www.tradingview.com/lightweight-charts/)) with a Price ⇄ MCap toggle, a persistent token rail, a docked Buy/Sell panel, and live swaps / top-holders feeds.
-- **Swap any token** — buy/sell SPL tokens through [Jupiter v6](https://station.jup.ag/docs/apis/swap-api) with slippage control and price-impact estimates.
+- **Live markets** — trending tokens, prices, market caps, and 24h moves powered by [BirdEye](https://birdeye.so), proxied server-side so the API key never ships to the client bundle.
+- **Trading terminal** — real candlestick + volume charts ([lightweight-charts](https://www.tradingview.com/lightweight-charts/)) with a Price ⇄ MCap toggle, a persistent token rail, a docked Buy/Sell panel, live recent swaps, and real top-holders feeds. Y-axis formatting handles micro-cap prices correctly. Range switching shows a proper loading state while chart data reloads.
+- **Swap any token** — buy/sell SPL tokens through [Jupiter v6](https://station.jup.ag/docs/apis/swap-api) with slippage control and price-impact estimates. Completed trades are logged to Supabase.
 - **Live portfolio** — net worth, holdings, and value-weighted 24h change computed from your real on-chain balances, priced with live BirdEye quotes.
 - **Profile & social** — a generated handle/avatar, editable name + bio, following/followers, and a "Follow top traders" rail backed by [Supabase](https://supabase.com).
-- **Deposit & withdraw** — receive SOL via a QR code, or withdraw SOL to any address (10/25/50/Max) signed by the embedded wallet.
-- **Extras** — token/trader search (`/` shortcut), a live BTC/SOL/JUP majors ticker, and a "blur balances" privacy toggle.
+- **Deposit & withdraw** — receive SOL via a QR code, or withdraw SOL to any address (10/25/50/Max) signed by the embedded wallet. Both screens have an X button to dismiss and return to the previous page.
+- **Token search** — full Solana token search via BirdEye (`/` shortcut to focus), not limited to trending tokens.
+- **Security** — Privy JWT authentication (`jose` + JWKS) enforced on all mutating API routes (trades, profile edits, follow/unfollow). IP-based sliding-window rate limiting on every endpoint. BirdEye API key is server-side only — the `/api/birdeye` proxy is the only path to market data. Alchemy RPC key is domain-allowlisted in the Alchemy dashboard.
+- **Extras** — a live BTC/SOL/JUP majors ticker and a "blur balances" privacy toggle.
 
 ## Tech Stack
 
@@ -45,21 +47,19 @@ Create `.env.local`:
 NEXT_PUBLIC_PRIVY_APP_ID=
 
 # Solana RPC — https://alchemy.com
+# Add your production domain + localhost to the Alchemy dashboard allowlist.
 NEXT_PUBLIC_ALCHEMY_RPC_URL=
 
-# BirdEye — https://birdeye.so (server key stays private; public key is the fallback)
+# BirdEye — https://birdeye.so
+# Server-side only — do NOT prefix with NEXT_PUBLIC_.
 BIRDEYE_API_KEY=
-NEXT_PUBLIC_BIRDEYE_API_KEY=
 
 # Supabase — https://supabase.com
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
-
-# Base URL used for server-side fetches (default: http://localhost:3000)
-NEXT_PUBLIC_SITE_URL=http://localhost:3000
 ```
 
-> Missing BirdEye keys won't break the UI — the app falls back to mock token data so you never hit a blank screen. Chart requests are quantized to 60s windows so they stay cacheable and stay within free-tier rate limits.
+> If `BIRDEYE_API_KEY` is missing the `/api/birdeye` proxy returns a `fallback: true` error and market data won't load. The Alchemy RPC URL is intentionally public (`NEXT_PUBLIC_`) but restrict it by domain in the Alchemy dashboard so it can't be abused from other sites.
 
 ### 3. Set up the database
 
