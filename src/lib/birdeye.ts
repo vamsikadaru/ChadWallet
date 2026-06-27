@@ -457,43 +457,59 @@ export async function getTokenTrades(address: string): Promise<LiveTrade[]> {
   try {
     const res = await fetch(
       `${apiBase()}/api/birdeye?type=trades&address=${address}` +
-        `&tx_type=swap&sort_type=desc&limit=20`,
-      { next: { revalidate: 10 } }
+        `&tx_type=swap&sort_type=desc&limit=40`,
+      { cache: "no-store" }
     );
     const json = await res.json();
-    const items = json?.data?.items;
-    if (json?.fallback || !Array.isArray(items)) return [];
+    if (json?.fallback) return [];
+    // BirdEye returns items under data.items or data.trades depending on version
+    const items: unknown[] =
+      json?.data?.items ?? json?.data?.trades ?? json?.items ?? [];
+    if (!Array.isArray(items) || items.length === 0) return [];
+
     return items
-      .map((it: Record<string, unknown>, i: number): LiveTrade | null => {
-        const side = it.side === "buy" || it.side === "sell" ? it.side : null;
-        const ut = (it.blockUnixTime as number) ?? 0;
+      .map((it: unknown, i: number): LiveTrade | null => {
+        const row = it as Record<string, unknown>;
+        // Side: tolerate "buy"/"sell"/"BUY"/"SELL" and numeric flags
+        const sideRaw = String(row.side ?? row.type ?? row.txType ?? "").toLowerCase();
+        const side: "buy" | "sell" | null = sideRaw.includes("buy")
+          ? "buy"
+          : sideRaw.includes("sell")
+          ? "sell"
+          : null;
+        // Timestamp
+        const ut = Number(
+          row.blockUnixTime ?? row.unixTime ?? row.timestamp ?? 0
+        );
         if (!side || !ut) return null;
-        const from = (it.from as TxSide) ?? {};
-        const to = (it.to as TxSide) ?? {};
-        const quote = (it.quote as TxSide) ?? {};
-        const base = (it.base as TxSide) ?? {};
-        // USD value of the swap (either leg works; they net out).
-        const usd =
+
+        const from  = (row.from  as TxSide) ?? {};
+        const to    = (row.to    as TxSide) ?? {};
+        const quote = (row.quote as TxSide) ?? {};
+        const base  = (row.base  as TxSide) ?? {};
+
+        const usdLeg =
           Math.abs((from.uiAmount ?? 0) * (from.price ?? 0)) ||
-          Math.abs((to.uiAmount ?? 0) * (to.price ?? 0));
-        // Price of the token this page is about.
+          Math.abs((to.uiAmount   ?? 0) * (to.price   ?? 0));
+        const usd = (row.volumeUsd as number) ?? usdLeg;
+
         const price =
-          quote.address === address
-            ? quote.price ?? 0
-            : base.address === address
-              ? base.price ?? 0
-              : (it.quotePrice as number) ?? 0;
-        const owner = (it.owner as string) ?? (it.txHash as string) ?? `t${i}`;
+          (row.price as number) ??
+          (quote.address === address ? quote.price ?? 0
+           : base.address === address ? base.price ?? 0
+           : (row.quotePrice as number) ?? 0);
+
+        const owner = String(row.owner ?? row.maker ?? row.txHash ?? `t${i}`);
         return {
           id: `${owner}-${ut}-${i}`,
           side,
-          amountUsd: usd,
-          price,
+          amountUsd: usd ?? 0,
+          price: price ?? 0,
           maker: owner,
           timestamp: ut * 1000,
         };
       })
-      .filter((t: LiveTrade | null): t is LiveTrade => t !== null);
+      .filter((t): t is LiveTrade => t !== null);
   } catch {
     return [];
   }

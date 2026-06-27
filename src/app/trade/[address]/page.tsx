@@ -156,12 +156,17 @@ export default function TradePage({
   };
 
   const TOKEN_STATS = [
-    { label: "Market cap",  value: `$${compact(display.marketCap)}` },
-    { label: "Price",       value: loading ? "—" : formatPrice(display.price) },
-    { label: "24H change",  value: null, change: display.priceChange24h },
-    { label: "24H Vol.",    value: `$${compact(display.volume24h)}` },
-    { label: "Liquidity",   value: `$${compact(display.liquidity ?? 0)}` },
-    { label: "Holders",     value: display.holders != null ? compact(display.holders) : "—" },
+    { label: "Price",        value: loading ? "—" : formatPrice(display.price) },
+    { label: "24H change",   value: null, change: display.priceChange24h },
+    { label: "24H Vol.",     value: `$${compact(display.volume24h)}` },
+    { label: "Liquidity",    value: `$${compact(display.liquidity ?? 0)}` },
+    { label: "Holders",      value: display.holders != null ? compact(display.holders) : "—" },
+    {
+      label: security ? "Top 10 holding" : "Market cap",
+      value: security
+        ? `${security.top10HolderPercent.toFixed(2)}%`
+        : `$${compact(display.marketCap)}`,
+    },
   ];
 
   return (
@@ -171,16 +176,17 @@ export default function TradePage({
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-bg-tertiary">
 
         {/* Token header bar */}
-        <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-bg-tertiary bg-bg-secondary px-4 py-2.5">
-          {/* Identity */}
-          <div className="flex items-center gap-2.5">
-            <TokenLogo src={display.logoURI} symbol={display.symbol} size={36} />
+        <div className="flex shrink-0 items-center gap-0 border-b border-bg-tertiary bg-bg-secondary px-4 py-2.5 overflow-hidden">
+
+          {/* Identity — fixed width, shrink-0 */}
+          <div className="flex shrink-0 items-center gap-2.5">
+            <TokenLogo src={display.logoURI} symbol={display.symbol} size={34} />
             <div>
               <div className="flex items-center gap-1.5">
                 {loading ? (
-                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-20" />
                 ) : (
-                  <span className="text-[14px] font-semibold text-text-primary">
+                  <span className="text-[13px] font-semibold text-text-primary whitespace-nowrap">
                     {display.name}
                   </span>
                 )}
@@ -189,7 +195,7 @@ export default function TradePage({
               <div className="flex items-center gap-1.5 mt-0.5">
                 <button
                   onClick={copyAddr}
-                  className="flex items-center gap-1 font-mono text-[11px] text-text-secondary transition-colors hover:text-text-primary"
+                  className="flex items-center gap-1 font-mono text-[11px] text-text-secondary transition-colors hover:text-text-primary whitespace-nowrap"
                 >
                   {display.symbol} · {truncateAddress(address, 4, 4)}
                   {addrCopied ? <Check size={10} className="text-green" /> : <Copy size={10} />}
@@ -206,13 +212,13 @@ export default function TradePage({
             </div>
           </div>
 
-          {/* Social / action icons */}
-          <div className="flex items-center gap-1.5">
+          {/* Action icons */}
+          <div className="ml-3 flex shrink-0 items-center gap-1">
             <button
               onClick={() => window.dispatchEvent(new Event("open-search"))}
-              className="flex h-7 w-7 items-center justify-center rounded-md border border-bg-tertiary text-text-secondary transition-colors hover:border-text-tertiary hover:text-text-primary"
+              className="flex h-6 w-6 items-center justify-center rounded text-text-tertiary transition-colors hover:text-text-primary"
             >
-              <Search size={13} />
+              <Search size={12} />
             </button>
             <button
               onClick={() => {
@@ -221,33 +227,35 @@ export default function TradePage({
                   setStarred(next);
                 }
               }}
-              className="flex h-7 w-7 items-center justify-center rounded-md border border-bg-tertiary transition-colors hover:border-text-tertiary"
-              style={{ color: starred ? "#FFB800" : "var(--text-secondary)" }}
+              className="flex h-6 w-6 items-center justify-center rounded transition-colors"
+              style={{ color: starred ? "#FFB800" : "var(--text-tertiary)" }}
             >
-              <Star size={13} fill={starred ? "#FFB800" : "none"} />
+              <Star size={12} fill={starred ? "#FFB800" : "none"} />
             </button>
           </div>
 
-          {/* Divider */}
-          <div className="hidden h-8 w-px bg-bg-tertiary sm:block" />
+          {/* Separator */}
+          <div className="mx-4 h-8 w-px shrink-0 bg-bg-tertiary" />
 
-          {/* Stats strip */}
-          {TOKEN_STATS.map((s) => (
-            <div key={s.label} className="hidden sm:flex sm:flex-col sm:gap-0.5">
-              <p className="text-[10px] font-medium uppercase tracking-wide text-text-secondary leading-none">
-                {s.label}
-              </p>
-              <div className="flex h-[18px] items-center">
-                {s.change != null ? (
-                  <PriceBadge value={s.change} showArrow />
-                ) : (
-                  <p className="font-mono text-[13px] font-medium text-text-primary leading-none">
-                    {s.value}
-                  </p>
-                )}
+          {/* Stats — fill all remaining space, evenly distributed */}
+          <div className="flex flex-1 items-center justify-between min-w-0">
+            {TOKEN_STATS.map((s) => (
+              <div key={s.label} className="flex flex-col gap-0.5">
+                <p className="text-[10px] font-medium text-text-secondary leading-none whitespace-nowrap">
+                  {s.label}
+                </p>
+                <div className="flex h-[18px] items-center">
+                  {s.change != null ? (
+                    <PriceBadge value={s.change} showArrow />
+                  ) : (
+                    <p className="font-mono text-[13px] font-semibold text-text-primary leading-none whitespace-nowrap">
+                      {s.value}
+                    </p>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
 
         {/* Chart area */}
