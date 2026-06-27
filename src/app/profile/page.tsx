@@ -14,6 +14,7 @@ import {
   ArrowDownToLine,
   ArrowUpFromLine,
   X,
+  LogOut,
 } from "lucide-react";
 import { FadeIn, EASE } from "@/components/ui/motion";
 import NetWorth from "@/components/portfolio/NetWorth";
@@ -27,7 +28,7 @@ import { avatarGradient, monogram } from "@/lib/handle";
 import { truncateAddress } from "@/lib/format";
 
 export default function ProfilePage() {
-  const { user } = usePrivy();
+  const { user, logout } = usePrivy();
   const { loading, netWorth, change24h, holdings, activity } = usePortfolio();
   const {
     address,
@@ -87,12 +88,20 @@ export default function ProfilePage() {
                   >
                     {monogram(displayName)}
                   </div>
-                  <button
-                    onClick={() => setEditing(true)}
-                    className="flex h-9 items-center gap-1.5 rounded-[var(--radius-pill)] border border-border bg-bg-1 px-4 text-[13px] font-semibold transition-colors hover:border-[var(--border-bright)]"
-                  >
-                    <Pencil size={13} /> Edit profile
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setEditing(true)}
+                      className="flex h-9 items-center gap-1.5 rounded-[var(--radius-pill)] border border-border bg-bg-1 px-4 text-[13px] font-semibold transition-colors hover:border-[var(--border-bright)]"
+                    >
+                      <Pencil size={13} /> Edit profile
+                    </button>
+                    <button
+                      onClick={logout}
+                      className="flex h-9 items-center gap-1.5 rounded-[var(--radius-pill)] border border-danger/40 bg-bg-1 px-4 text-[13px] font-semibold text-danger transition-colors hover:bg-danger/10"
+                    >
+                      <LogOut size={13} /> Log out
+                    </button>
+                  </div>
                 </div>
 
                 <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2">
