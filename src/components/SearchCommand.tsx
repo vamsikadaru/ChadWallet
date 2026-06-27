@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { Search, X, ArrowRight } from "lucide-react";
+import { Search, X, ArrowRight } from "lucide-react"; // Search kept for modal input icon
 import TokenLogo from "./ui/TokenLogo";
 import PriceBadge from "./ui/PriceBadge";
 import { getTrendingTokens, searchTokens } from "@/lib/birdeye";
@@ -94,17 +94,6 @@ export default function SearchCommand() {
 
   return (
     <>
-      <button
-        onClick={() => setOpen(true)}
-        className="flex w-full items-center gap-2.5 rounded-[var(--radius-md)] border border-border bg-bg-1 px-3 py-2 text-[13px] text-text-3 transition-colors hover:border-[var(--border-bright)]"
-      >
-        <Search size={15} />
-        <span className="flex-1 text-left">Search tokens…</span>
-        <kbd className="rounded border border-border bg-bg-2 px-1.5 py-0.5 font-mono text-[10px]">
-          /
-        </kbd>
-      </button>
-
       <AnimatePresence>
         {open && (
           <div className="fixed inset-0 z-[60] flex items-start justify-center p-4 pt-[12vh]">

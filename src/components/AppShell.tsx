@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import Landing from "./Landing";
 import AppHeader from "./AppHeader";
@@ -19,48 +20,70 @@ function BootSplash() {
   );
 }
 
+/* Expand arrow — same chevrons as fomo's collapse SVG but rotated 180° */
+function ExpandIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 14 14" fill="none" className="rotate-180">
+      <path
+        d="M7.25609 11.911C7.58193 12.2369 7.58193 12.7636 7.25609 13.0894C7.09359 13.2519 6.88023 13.3336 6.6669 13.3336C6.45357 13.3336 6.24021 13.2519 6.07771 13.0894L0.244375 7.25609C-0.0814583 6.93026 -0.0814583 6.40354 0.244375 6.07771L6.07771 0.244375C6.40354 -0.0814583 6.93026 -0.0814583 7.25609 0.244375C7.58193 0.570208 7.58193 1.09693 7.25609 1.42276L2.01195 6.6669L7.25609 11.911ZM7.84529 6.6669L13.0894 1.42276C13.4153 1.09693 13.4153 0.570208 13.0894 0.244375C12.7636 -0.0814583 12.2369 -0.0814583 11.911 0.244375L6.07771 6.07771C5.75187 6.40354 5.75187 6.93026 6.07771 7.25609L11.911 13.0894C12.0735 13.2519 12.2869 13.3336 12.5002 13.3336C12.7136 13.3336 12.9269 13.2519 13.0894 13.0894C13.4153 12.7636 13.4153 12.2369 13.0894 11.911L7.84529 6.6669Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const { ready, authenticated } = usePrivy();
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   if (!ready) return <BootSplash />;
   if (!authenticated) return <Landing />;
 
   return (
-    /*
-     * Matches fomo's root layout:
-     *   pt-2 pl-4  — only top + left padding; right padding lives on the header wrapper
-     *   gap-3      — vertical gap between header and body
-     *   h-svh / max-h-svh / overflow-hidden — full-screen, no page scroll
-     */
     <div
       className="flex h-svh max-h-svh w-dvw flex-col gap-3 overflow-hidden pl-4 pt-2"
       style={{ background: "var(--bg-0)" }}
     >
-      {/* Header — pr-4 wrapper mirrors fomo's <div class="pr-4"> around the header */}
+      {/* Header */}
       <div className="shrink-0 pr-4">
         <AppHeader />
       </div>
 
-      {/* Body: left panel + content — no extra padding, gap-3 between columns */}
+      {/* Body */}
       <div className="flex min-h-0 flex-1 gap-3 pb-2">
-        {/* Left discovery panel — desktop only, w-70 (280px = 17.5rem) matching fomo */}
-        <div className="hidden min-h-0 w-70 shrink-0 flex-col 2xl:w-85 lg:flex">
-          <DiscoveryPanel />
+        {/*
+         * Left panel — transition-[width] so the chart fills the space smoothly
+         * when collapsed, matching fomo's DOM exactly.
+         */}
+        <div
+          className={`hidden shrink-0 flex-col min-h-0 overflow-hidden transition-[width] duration-150 ease-out lg:flex ${
+            sidebarOpen ? "w-70 2xl:w-85" : "w-8"
+          }`}
+        >
+          {sidebarOpen ? (
+            <DiscoveryPanel onCollapse={() => setSidebarOpen(false)} />
+          ) : (
+            /* Collapsed strip — just the expand button */
+            <div className="flex flex-1 flex-col items-center rounded-xl border border-bg-tertiary py-3">
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="p-1 text-text-secondary transition-colors hover:text-text-primary"
+                title="Expand panel"
+              >
+                <ExpandIcon />
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* Main content — pr-4 closes the right-side gap like fomo */}
+        {/* Main content */}
         <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden pr-4">
           {children}
         </main>
       </div>
 
-      {/* Bottom status bar — desktop only */}
       <MajorsTicker />
-
-      {/* Search modal */}
       <SearchCommand />
-
-      {/* Mobile bottom nav */}
       <BottomNav />
     </div>
   );

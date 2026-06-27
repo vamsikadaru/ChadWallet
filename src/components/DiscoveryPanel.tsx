@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import TokenLogo from "./ui/TokenLogo";
 import PriceBadge from "./ui/PriceBadge";
 import { formatPrice, compact } from "@/lib/format";
-import { getTrendingTokens } from "@/lib/birdeye";
+import { getTrendingTokens, getGainers, getLosers, getNewListings, getCryptoTokens } from "@/lib/birdeye";
+import { getWatchlist } from "@/lib/watchlist";
 import { useSolanaWallet } from "@/lib/solana";
 import { avatarGradient, monogram, handleFromAddress } from "@/lib/handle";
 import type { Token } from "@/lib/types";
@@ -98,57 +99,147 @@ function AlertsTab() {
   );
 }
 
-function TokensTab({ activeAddress }: { activeAddress?: string }) {
-  const [tokens, setTokens] = useState<Token[]>([]);
+const TOKEN_SUB_FILTERS = [
+  { key: "trending",  label: "Trending"  },
+  { key: "watchlist", label: "Watchlist" },
+  { key: "new",       label: "New"       },
+  { key: "gainers",   label: "Gainers"   },
+  { key: "losers",    label: "Losers"    },
+  { key: "crypto",    label: "Crypto"    },
+] as const;
+type TokenSubFilter = (typeof TOKEN_SUB_FILTERS)[number]["key"];
 
+function TokensTab({ activeAddress }: { activeAddress?: string }) {
+  const [trending, setTrending] = useState<Token[]>([]);
+  const [subFilter, setSubFilter] = useState<TokenSubFilter>("trending");
+  const [filterData, setFilterData] = useState<Partial<Record<TokenSubFilter, Token[]>>>({});
+  const [filterLoading, setFilterLoading] = useState(false);
+  const [watchlist, setWatchlist] = useState<Token[]>([]);
+  const loadedFilters = useRef<Set<string>>(new Set());
+
+  // Trending: poll every 30s
   useEffect(() => {
     let mounted = true;
-    const load = () => getTrendingTokens().then((t) => { if (mounted) setTokens(t); });
+    const load = () => getTrendingTokens().then((t) => { if (mounted) setTrending(t); });
     load();
     const id = setInterval(load, 30000);
     return () => { mounted = false; clearInterval(id); };
   }, []);
 
-  if (tokens.length === 0) {
+  // Watchlist: sync from localStorage
+  useEffect(() => {
+    const sync = () => setWatchlist(getWatchlist());
+    sync();
+    window.addEventListener("watchlist-change", sync);
+    return () => window.removeEventListener("watchlist-change", sync);
+  }, []);
+
+  // Per-subfilter lazy load (gainers, losers, new, crypto)
+  useEffect(() => {
+    if (subFilter === "trending" || subFilter === "watchlist") return;
+    if (loadedFilters.current.has(subFilter)) return;
+    loadedFilters.current.add(subFilter);
+    let mounted = true;
+    setFilterLoading(true);
+    const loaders: Partial<Record<TokenSubFilter, () => Promise<Token[]>>> = {
+      gainers: getGainers,
+      losers:  getLosers,
+      new:     getNewListings,
+      crypto:  getCryptoTokens,
+    };
+    loaders[subFilter]?.().then((t) => {
+      if (mounted) {
+        setFilterData((prev) => ({ ...prev, [subFilter]: t }));
+        setFilterLoading(false);
+      }
+    });
+    return () => { mounted = false; };
+  }, [subFilter]);
+
+  const displayedTokens: Token[] = (() => {
+    if (subFilter === "watchlist") return watchlist;
+    if (subFilter === "trending")  return trending;
+    return filterData[subFilter] ?? [];
+  })();
+
+  const isLoading = (() => {
+    if (subFilter === "watchlist") return false;
+    if (subFilter === "trending")  return trending.length === 0;
+    return filterLoading && filterData[subFilter] === undefined;
+  })();
+
+  const subFilterPills = (
+    <div className="no-scrollbar flex items-center gap-1.5 overflow-x-auto px-3 pb-1 pt-2">
+      {TOKEN_SUB_FILTERS.map((f) => (
+        <button
+          key={f.key}
+          onClick={() => setSubFilter(f.key)}
+          className="flex-none whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-colors"
+          style={
+            subFilter === f.key
+              ? { background: "var(--accent-primary)", color: "#fff" }
+              : { background: "var(--bg-tertiary-solid)", color: "var(--text-secondary)" }
+          }
+        >
+          {f.label}
+        </button>
+      ))}
+    </div>
+  );
+
+  // Watchlist empty state
+  if (subFilter === "watchlist" && watchlist.length === 0) {
     return (
-      <div className="flex flex-col gap-px px-2 pt-1">
-        {Array.from({ length: 10 }).map((_, i) => (
-          <div key={i} className="flex items-center gap-2.5 rounded-lg px-2 py-2">
-            <div className="h-3 w-4 shrink-0 animate-pulse rounded bg-bg-tertiary" />
-            <div className="h-8 w-8 shrink-0 animate-pulse rounded-full bg-bg-tertiary" />
-            <div className="flex flex-1 flex-col gap-1.5">
-              <div className="h-2.5 w-16 animate-pulse rounded bg-bg-tertiary" />
-              <div className="h-2 w-12 animate-pulse rounded bg-bg-tertiary" />
-            </div>
-          </div>
-        ))}
-      </div>
+      <>
+        {subFilterPills}
+        <div className="flex flex-col items-center justify-center gap-2 px-4 py-12 text-center">
+          <p className="text-[13px] font-medium text-text-primary">None</p>
+          <p className="text-[11px] text-text-secondary">Star a token on its page to add it here.</p>
+        </div>
+      </>
     );
   }
 
   return (
-    <div className="flex flex-col gap-px px-2 pt-1">
-      {tokens.map((t, i) => (
-        <Link
-          key={t.address}
-          href={`/trade/${t.address}`}
-          className={`flex items-center gap-2.5 rounded-lg px-2 py-1 min-w-0 transition-colors hover:bg-bg-secondary focus-visible:bg-bg-secondary ${
-            t.address === activeAddress ? "bg-bg-secondary" : ""
-          }`}
-        >
-          <span className="w-5 shrink-0 text-center text-xs text-text-secondary">{i + 1}.</span>
-          <TokenLogo src={t.logoURI} symbol={t.symbol} size={36} />
-          <div className="flex min-w-0 flex-1 flex-col justify-between gap-0.5">
-            <p className="truncate text-sm text-text-primary">{t.symbol}</p>
-            <p className="truncate text-xs text-text-secondary">${compact(t.marketCap)} MC</p>
-          </div>
-          <div className="flex h-12 shrink-0 flex-col items-end justify-center gap-1">
-            <p className="font-mono text-[12px] text-text-primary">{formatPrice(t.price)}</p>
-            <PriceBadge value={t.priceChange24h} showArrow={false} />
-          </div>
-        </Link>
-      ))}
-    </div>
+    <>
+      {subFilterPills}
+
+      {/* Token list */}
+      <div className="no-scrollbar flex flex-1 flex-col gap-px overflow-y-scroll overflow-x-hidden px-2">
+        {isLoading
+          ? Array.from({ length: 10 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-2.5 rounded-lg px-2 py-2">
+                <div className="h-3 w-4 shrink-0 animate-pulse rounded bg-bg-tertiary" />
+                <div className="h-8 w-8 shrink-0 animate-pulse rounded-full bg-bg-tertiary" />
+                <div className="flex flex-1 flex-col gap-1.5">
+                  <div className="h-2.5 w-16 animate-pulse rounded bg-bg-tertiary" />
+                  <div className="h-2 w-12 animate-pulse rounded bg-bg-tertiary" />
+                </div>
+              </div>
+            ))
+          : displayedTokens.map((t, i) => (
+              <Link
+                key={t.address}
+                href={`/trade/${t.address}`}
+                className={`flex items-center gap-2.5 rounded-lg px-2 py-1 min-w-0 transition-colors hover:bg-bg-secondary focus-visible:bg-bg-secondary ${
+                  t.address === activeAddress ? "bg-bg-secondary" : ""
+                }`}
+              >
+                <span className="w-5 shrink-0 text-center text-xs text-text-secondary">{i + 1}.</span>
+                <TokenLogo src={t.logoURI} symbol={t.symbol} size={36} />
+                <div className="flex min-w-0 flex-1 flex-col justify-between gap-0.5">
+                  <p className="truncate text-sm text-text-primary">{t.symbol}</p>
+                  <p className="truncate text-xs text-text-secondary">${compact(t.marketCap)} MC</p>
+                </div>
+                <div className="flex h-12 shrink-0 flex-col items-end justify-center gap-1">
+                  <p className="font-mono text-[12px] text-text-primary">{formatPrice(t.price)}</p>
+                  <PriceBadge value={t.priceChange24h} showArrow={false} />
+                </div>
+              </Link>
+            ))
+        }
+      </div>
+    </>
   );
 }
 
@@ -238,29 +329,14 @@ const CollapseSVG = () => (
 );
 
 /* ─── Main component ─────────────────────────────────────────────── */
-export default function DiscoveryPanel() {
+export default function DiscoveryPanel({ onCollapse }: { onCollapse?: () => void }) {
   const pathname = usePathname();
-  const [tab, setTab] = useState<Tab>("Leaderboard");
+  const [tab, setTab] = useState<Tab>("Tokens");
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("24H");
-  const [collapsed, setCollapsed] = useState(false);
 
   const activeAddress = pathname.startsWith("/trade/")
     ? pathname.split("/trade/")[1]
     : undefined;
-
-  if (collapsed) {
-    return (
-      <div className="flex w-8 flex-col items-center rounded-xl border border-bg-tertiary py-3">
-        <button
-          onClick={() => setCollapsed(false)}
-          className="rotate-180 p-1 text-text-secondary hover:text-text-primary transition-colors"
-          title="Expand panel"
-        >
-          <CollapseSVG />
-        </button>
-      </div>
-    );
-  }
 
   return (
     /* Matches fomo: flex flex-1 flex-col rounded-xl border border-bg-tertiary min-h-0 min-w-0 pb-2 */
@@ -298,7 +374,7 @@ export default function DiscoveryPanel() {
         {/* Collapse button */}
         <div className="ml-auto flex shrink-0 items-center gap-1">
           <button
-            onClick={() => setCollapsed(true)}
+            onClick={() => onCollapse?.()}
             className="p-1 text-text-tertiary transition-colors hover:text-text-primary focus:outline-none"
             aria-label="Collapse discovery panel"
           >

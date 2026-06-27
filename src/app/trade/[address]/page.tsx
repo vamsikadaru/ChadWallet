@@ -12,6 +12,7 @@ import TradePanel from "@/components/trade/TradePanel";
 import TokenStats from "@/components/trade/TokenStats";
 import { LiveTrades, HoldersList } from "@/components/trade/LiveFeed";
 import { getTokenOverview, getCandles, getTokenSecurity, type Candle } from "@/lib/birdeye";
+import { isWatchlisted, toggleWatchlist } from "@/lib/watchlist";
 import { MOCK_TOKENS } from "@/lib/mock";
 import { formatPrice, compact, truncateAddress } from "@/lib/format";
 import type { Token, TokenSecurity } from "@/lib/types";
@@ -32,28 +33,6 @@ function riskLevel(sec: TokenSecurity): "safe" | "caution" | "risky" {
   return "safe";
 }
 
-/* ── OHLC readout shown above the chart ── */
-function OhlcReadout({ candles }: { candles: Candle[] }) {
-  const last = candles[candles.length - 1];
-  if (!last) return null;
-  const fields = [
-    { label: "O", value: formatPrice(last.open) },
-    { label: "H", value: formatPrice(last.high) },
-    { label: "L", value: formatPrice(last.low) },
-    { label: "C", value: formatPrice(last.close) },
-  ];
-  const up = last.close >= last.open;
-  return (
-    <div className="flex items-center gap-3 px-3 py-1 font-mono text-[11px]">
-      {fields.map(({ label, value }) => (
-        <span key={label} className="flex items-center gap-1">
-          <span className="text-text-tertiary">{label}</span>
-          <span style={{ color: up ? "var(--success)" : "var(--danger)" }}>{value}</span>
-        </span>
-      ))}
-    </div>
-  );
-}
 
 export default function TradePage({
   params,
@@ -71,7 +50,9 @@ export default function TradePage({
   const [tab, setTab] = useState<Tab>("swaps");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [addrCopied, setAddrCopied] = useState(false);
-  const [starred, setStarred] = useState(false);
+  const [starred, setStarred] = useState(() =>
+    typeof window !== "undefined" ? isWatchlisted(address) : false
+  );
   const [mySwapsOnly, setMySwapsOnly] = useState(false);
   const [friendsOnly, setFriendsOnly] = useState(false);
 
@@ -234,7 +215,12 @@ export default function TradePage({
               <Search size={13} />
             </button>
             <button
-              onClick={() => setStarred((v) => !v)}
+              onClick={() => {
+                if (token) {
+                  const next = toggleWatchlist(token);
+                  setStarred(next);
+                }
+              }}
               className="flex h-7 w-7 items-center justify-center rounded-md border border-bg-tertiary transition-colors hover:border-text-tertiary"
               style={{ color: starred ? "#FFB800" : "var(--text-secondary)" }}
             >
@@ -247,29 +233,29 @@ export default function TradePage({
 
           {/* Stats strip */}
           {TOKEN_STATS.map((s) => (
-            <div key={s.label} className="hidden sm:block">
-              <p className="text-[10px] font-medium uppercase tracking-wide text-text-secondary">
+            <div key={s.label} className="hidden sm:flex sm:flex-col sm:gap-0.5">
+              <p className="text-[10px] font-medium uppercase tracking-wide text-text-secondary leading-none">
                 {s.label}
               </p>
-              {s.change != null ? (
-                <div className="mt-0.5">
+              <div className="flex h-[18px] items-center">
+                {s.change != null ? (
                   <PriceBadge value={s.change} showArrow />
-                </div>
-              ) : (
-                <p className="mt-0.5 font-mono text-[13px] font-medium text-text-primary">
-                  {s.value}
-                </p>
-              )}
+                ) : (
+                  <p className="font-mono text-[13px] font-medium text-text-primary leading-none">
+                    {s.value}
+                  </p>
+                )}
+              </div>
             </div>
           ))}
         </div>
 
         {/* Chart area */}
         <div className="flex min-h-0 flex-1 flex-col">
-          {/* Chart controls */}
-          <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-bg-tertiary px-3 py-1.5">
+          {/* Single unified controls bar */}
+          <div className="flex shrink-0 items-center gap-2 border-b border-bg-tertiary px-3 py-1.5">
             {/* Range picker */}
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-0.5">
               {RANGES.map((r) => (
                 <button
                   key={r}
@@ -285,10 +271,10 @@ export default function TradePage({
               ))}
             </div>
 
-            <div className="h-4 w-px bg-bg-tertiary" />
+            <div className="h-4 w-px shrink-0 bg-bg-tertiary" />
 
             {/* Price / MCap */}
-            <div className="flex items-center gap-1 rounded-full border border-bg-tertiary bg-bg-primary p-0.5">
+            <div className="flex items-center gap-0.5 rounded-full border border-bg-tertiary bg-bg-primary p-0.5">
               {(["price", "mcap"] as const).map((d) => (
                 <button
                   key={d}
@@ -304,17 +290,14 @@ export default function TradePage({
               ))}
             </div>
 
-            {/* OHLC readout */}
-            <OhlcReadout candles={candles} />
-          </div>
+            <div className="h-4 w-px shrink-0 bg-bg-tertiary" />
 
-          {/* Chart overlays row */}
-          <div className="flex shrink-0 items-center gap-4 border-b border-bg-tertiary px-3 py-1">
+            {/* My swaps / Friends only */}
             {([
               ["mySwaps", "My swaps", mySwapsOnly, setMySwapsOnly],
               ["friendsOnly", "Friends only", friendsOnly, setFriendsOnly],
             ] as [string, string, boolean, (v: boolean) => void][]).map(([id, label, checked, setter]) => (
-              <label key={id} className="flex cursor-pointer items-center gap-1.5 select-none">
+              <label key={id} className="flex cursor-pointer select-none items-center gap-1.5">
                 <input
                   type="checkbox"
                   checked={checked}
@@ -390,7 +373,7 @@ export default function TradePage({
       </div>
 
       {/* ── RIGHT PANEL (desktop) ── */}
-      <aside className="hidden w-[296px] shrink-0 flex-col overflow-hidden rounded-xl border border-bg-tertiary lg:flex">
+      <aside className="hidden w-[268px] shrink-0 flex-col overflow-hidden rounded-xl border border-bg-tertiary bg-bg-secondary lg:flex">
         <div className="no-scrollbar flex-1 overflow-y-auto">
           <SectionBoundary label="trade panel">
             <TradePanel token={display} />
@@ -401,21 +384,21 @@ export default function TradePage({
             </SectionBoundary>
           </div>
           {/* Your positions */}
-          <div className="border-t border-bg-tertiary p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <span className="text-[13px] font-semibold text-text-primary">
+          <div className="border-t border-bg-tertiary px-4 py-3">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-[12px] font-semibold text-text-primary">
                 Your positions
               </span>
-              <div className="flex items-center gap-1 rounded-full border border-bg-tertiary bg-bg-primary p-0.5">
-                <span className="rounded-full bg-bg-tertiary px-2.5 py-0.5 text-[11px] text-text-primary">
+              <div className="flex items-center rounded-lg p-0.5" style={{ background: "var(--bg-tertiary-solid)" }}>
+                <span className="rounded-md px-2.5 py-1 text-[11px] font-semibold text-text-primary" style={{ background: "var(--bg-primary)" }}>
                   Open
                 </span>
-                <span className="px-2.5 py-0.5 text-[11px] text-text-secondary">
+                <span className="px-2.5 py-1 text-[11px] font-medium text-text-tertiary">
                   Closed
                 </span>
               </div>
             </div>
-            <p className="py-6 text-center text-[12px] text-text-secondary">
+            <p className="py-5 text-center text-[12px] text-text-tertiary">
               No open positions
             </p>
           </div>

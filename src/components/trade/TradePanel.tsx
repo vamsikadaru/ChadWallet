@@ -3,10 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { AnimatePresence, motion } from "framer-motion";
-import { Settings2, Check, Loader2, AlertTriangle } from "lucide-react";
+import { Settings2, Check, Loader2, AlertTriangle, Info } from "lucide-react";
 import type { Token } from "@/lib/types";
 import { useSolanaWallet } from "@/lib/solana";
 import { getTokenOverview } from "@/lib/birdeye";
+import { usePortfolio } from "@/lib/usePortfolio";
 
 const WSOL = "So11111111111111111111111111111111111111112";
 const SLIPPAGES = [0.5, 1, 3] as const;
@@ -24,6 +25,8 @@ function base64ToBytes(b64: string): Uint8Array {
 export default function TradePanel({ token }: { token: Token }) {
   const { authenticated, login, getAccessToken } = usePrivy();
   const { wallet, address, sendSerialized } = useSolanaWallet();
+  const { netWorth, holdings } = usePortfolio();
+  const tokenBalance = holdings.find((h) => h.token.address === token.address)?.balance ?? 0;
 
   const [side, setSide] = useState<"buy" | "sell">("buy");
   const [amount, setAmount] = useState("");
@@ -57,9 +60,9 @@ export default function TradePanel({ token }: { token: Token }) {
       if (!amount || Number(amount) <= 0) { setQuote(null); setQuoteRes(null); return; }
       setQuoting(true);
       try {
-        const inputMint = side === "buy" ? WSOL : token.address;
+        const inputMint  = side === "buy" ? WSOL : token.address;
         const outputMint = side === "buy" ? token.address : WSOL;
-        const solUsd = solPrice || 0;
+        const solUsd  = solPrice || 0;
         const inAmount = side === "buy" ? Number(amount) / solUsd : Number(amount);
         const decimals = side === "buy" ? 9 : 6;
         const raw = Math.floor(inAmount * 10 ** decimals);
@@ -132,157 +135,239 @@ export default function TradePanel({ token }: { token: Token }) {
   }
 
   const buy = side === "buy";
+  const amt = Number(amount);
+  const isBelowMin     = authenticated && amt > 0 && amt < 2;
+  const isInsufficient = authenticated && amt > 0 && netWorth < amt;
 
   return (
-    <div className="p-4">
-      {/* Buy / Sell tab buttons */}
-      <div className="flex overflow-hidden rounded-lg border border-bg-tertiary">
-        {(["buy", "sell"] as const).map((s) => (
-          <button
-            key={s}
-            onClick={() => { setSide(s); setAmount(""); }}
-            className="flex-1 py-2.5 text-[14px] font-semibold capitalize transition-colors"
-            style={
-              side === s
-                ? {
-                    background: s === "buy" ? "var(--success)" : "var(--danger)",
-                    color: "#fff",
-                  }
-                : { color: "var(--text-secondary)" }
-            }
-          >
-            {s}
-          </button>
-        ))}
+    <div className="flex flex-col">
+
+      {/* ── Buy / Sell tabs ── */}
+      <div className="px-2.5 pt-2.5 pb-2">
+        <div
+          className="relative flex rounded-xl p-1"
+          style={{ background: "var(--bg-tertiary-solid)" }}
+        >
+          <motion.div
+            layout
+            transition={{ type: "spring", stiffness: 500, damping: 40 }}
+            className="absolute top-1 h-[calc(100%-8px)] w-[calc(50%-4px)] rounded-lg"
+            style={{
+              left: buy ? "4px" : "calc(50%)",
+              background: buy ? "rgba(20,241,149,0.18)" : "rgba(255,75,75,0.18)",
+              border: `1px solid ${buy ? "rgba(20,241,149,0.30)" : "rgba(255,75,75,0.30)"}`,
+            }}
+          />
+          {(["buy", "sell"] as const).map((s) => {
+            const disabled = s === "sell" && tokenBalance === 0;
+            return (
+              <button
+                key={s}
+                onClick={() => { if (!disabled) { setSide(s); setAmount(""); } }}
+                disabled={disabled}
+                className="relative z-10 flex-1 py-2.5 text-[14px] font-bold capitalize transition-colors disabled:cursor-not-allowed"
+                style={
+                  disabled
+                    ? { color: "var(--text-tertiary)" }
+                    : side === s
+                    ? { color: s === "buy" ? "var(--color-green)" : "var(--color-red)" }
+                    : { color: "var(--text-secondary)" }
+                }
+              >
+                {s}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Dollar amount input */}
-      <div className="mt-4 flex items-center gap-2 rounded-lg border border-bg-tertiary bg-bg-primary px-3 py-2 focus-within:border-accent-primary">
-        <span className="text-[22px] font-medium text-text-secondary">$</span>
-        <input
-          inputMode="decimal"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
-          placeholder="0"
-          className="w-full bg-transparent text-[22px] font-medium text-text-primary placeholder:text-text-tertiary focus:outline-none"
-        />
-        <span className="shrink-0 font-mono text-[12px] text-text-secondary">
-          {buy ? "USD" : token.symbol}
-        </span>
-      </div>
+      <div className="flex flex-col gap-2 px-2.5 pb-2.5">
 
-      {/* Quick amount presets */}
-      <div className="mt-2 flex gap-1.5">
-        {QUICK_AMOUNTS.map((v) => (
-          <button
-            key={v}
-            onClick={() => setAmount(String(v))}
-            className="flex-1 rounded-md border border-bg-tertiary bg-bg-secondary py-1.5 text-[12px] font-medium text-text-secondary transition-colors hover:border-accent-primary hover:text-text-primary"
-          >
-            ${v}
-          </button>
-        ))}
-        {/* Slippage gear */}
-        <div className="relative">
+        {/* ── Amount input ── */}
+        <div
+          className="flex items-center justify-between rounded-xl border px-4 py-3"
+          style={{ background: "var(--bg-primary)", borderColor: "var(--bg-tertiary-solid)" }}
+        >
+          <div className="flex items-baseline gap-0.5">
+            <span className="text-[22px] font-semibold" style={{ color: amount ? "var(--text-primary)" : "var(--text-tertiary)" }}>
+              $
+            </span>
+            <input
+              inputMode="decimal"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
+              placeholder="0"
+              className="min-w-0 w-20 bg-transparent text-[22px] font-semibold text-text-primary placeholder:text-text-tertiary focus:outline-none"
+            />
+          </div>
+          <span className="shrink-0 text-[13px] text-text-tertiary">
+            {amount
+              ? quoting
+                ? "…"
+                : quote
+                ? `≈ ${quote} ${buy ? token.symbol : "SOL"}`
+                : ""
+              : "Enter amount"}
+          </span>
+        </div>
+
+        {/* ── Quick amount chips + settings gear ── */}
+        <div className="grid grid-cols-5 gap-1.5">
+          {QUICK_AMOUNTS.map((v) => (
+            <button
+              key={v}
+              onClick={() => setAmount(String(v))}
+              className="rounded-lg py-1.5 text-center text-[12px] font-semibold transition-colors"
+              style={
+                amount === String(v)
+                  ? {
+                      background: buy ? "rgba(20,241,149,0.15)" : "rgba(255,75,75,0.15)",
+                      color: buy ? "var(--color-green)" : "var(--color-red)",
+                    }
+                  : { background: "var(--bg-tertiary-solid)", color: "var(--text-secondary)" }
+              }
+            >
+              ${v}
+            </button>
+          ))}
           <button
             onClick={() => setShowSlippage((v) => !v)}
-            className="flex h-full items-center justify-center rounded-md border border-bg-tertiary bg-bg-secondary px-2 text-text-secondary transition-colors hover:text-text-primary"
+            className="flex items-center justify-center rounded-lg py-1.5 transition-colors"
+            style={
+              showSlippage
+                ? { background: "var(--bg-tertiary-solid)", color: "var(--text-primary)" }
+                : { background: "var(--bg-tertiary-solid)", color: "var(--text-tertiary)" }
+            }
+            title={`Slippage: ${slippage}%`}
           >
             <Settings2 size={14} />
           </button>
-          <AnimatePresence>
-            {showSlippage && (
-              <motion.div
-                initial={{ opacity: 0, y: -4, scale: 0.96 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -4, scale: 0.96 }}
-                transition={{ duration: 0.14 }}
-                className="absolute right-0 top-9 z-20 w-40 rounded-lg border border-bg-tertiary bg-bg-secondary p-2 shadow-xl"
-              >
-                <p className="caps px-1 pb-1.5">Max slippage</p>
-                <div className="flex gap-1">
+        </div>
+
+        {/* Slippage panel */}
+        <AnimatePresence>
+          {showSlippage && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.15 }}
+              className="overflow-hidden"
+            >
+              <div className="flex gap-1.5 rounded-xl border border-bg-tertiary bg-bg-secondary p-2">
+                <span className="flex items-center px-1 text-[10px] font-bold uppercase tracking-wider text-text-tertiary">
+                  Slippage
+                </span>
+                <div className="flex flex-1 gap-1">
                   {SLIPPAGES.map((s) => (
                     <button
                       key={s}
                       onClick={() => { setSlippage(s); setShowSlippage(false); }}
-                      className={`flex-1 rounded-md py-1.5 font-mono text-[12px] transition-colors ${
+                      className="flex-1 rounded-lg py-1.5 font-mono text-[12px] font-medium transition-colors"
+                      style={
                         slippage === s
-                          ? "bg-accent-primary text-white"
-                          : "bg-bg-primary text-text-secondary hover:text-text-primary"
-                      }`}
+                          ? {
+                              background: buy ? "rgba(20,241,149,0.15)" : "rgba(255,75,75,0.15)",
+                              color: buy ? "var(--color-green)" : "var(--color-red)",
+                            }
+                          : { color: "var(--text-secondary)" }
+                      }
                     >
                       {s}%
                     </button>
                   ))}
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      </div>
-
-      {/* Available balance hint */}
-      <p className="mt-2 text-[12px] text-text-secondary">
-        {quoting ? (
-          <span className="inline-flex items-center gap-1">
-            <Loader2 size={11} className="animate-spin" /> quoting…
-          </span>
-        ) : quote ? (
-          `≈ ${quote} ${buy ? token.symbol : "SOL"}`
-        ) : (
-          "$0 available"
-        )}
-      </p>
-
-      {/* Price impact warning */}
-      {priceImpact > 1 && (
-        <div
-          className="mt-2 flex items-center gap-2 rounded-md px-3 py-2 text-[12px]"
-          style={{
-            color: priceImpact > 3 ? "var(--danger)" : "#FFC857",
-            background: priceImpact > 3 ? "rgba(255,75,75,0.10)" : "rgba(255,200,87,0.10)",
-          }}
-        >
-          <AlertTriangle size={12} />
-          Price impact {priceImpact.toFixed(2)}%
-        </div>
-      )}
-
-      {/* CTA button */}
-      <button
-        onClick={execute}
-        disabled={status === "loading" || (authenticated && (!amount || quoting))}
-        className={`mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-lg text-[14px] font-bold text-white transition-[filter,opacity] disabled:opacity-50 ${
-          !authenticated ? "bg-bg-tertiary-solid" : buy ? "btn-buy" : ""
-        }`}
-        style={authenticated && !buy ? { background: "var(--danger)" } : undefined}
-      >
-        <AnimatePresence mode="wait" initial={false}>
-          {status === "loading" ? (
-            <motion.span key="l" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <Loader2 size={16} className="animate-spin" />
-            </motion.span>
-          ) : status === "success" ? (
-            <motion.span key="s" initial={{ scale: 0.7, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="flex items-center gap-2">
-              <Check size={16} /> Confirmed
-            </motion.span>
-          ) : (
-            <motion.span key="t" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              {!authenticated ? "Connect wallet" : `${buy ? "Buy" : "Sell"} ${token.symbol}`}
-            </motion.span>
+              </div>
+            </motion.div>
           )}
         </AnimatePresence>
-      </button>
 
-      {/* Unverified token notice */}
-      <div className="mt-3 flex items-center gap-2 rounded-md border border-yellow-transparent bg-yellow-transparent px-3 py-2 text-[12px] text-warning">
-        <AlertTriangle size={12} />
-        Unverified token — trade at your own risk
+        {/* ── Available balance ── */}
+        <p className="text-[12px] text-text-secondary">
+          ${netWorth > 0 ? netWorth.toLocaleString("en-US", { maximumFractionDigits: 2 }) : "0"} available
+        </p>
+
+        {/* ── Insufficient balance error ── */}
+        {isInsufficient && (
+          <p className="text-[13px] font-medium" style={{ color: "var(--color-red)" }}>
+            Insufficient cash balance
+          </p>
+        )}
+
+        {/* ── Price impact warning ── */}
+        {priceImpact > 1 && (
+          <div
+            className="flex items-center gap-2 rounded-lg px-3 py-2 text-[12px]"
+            style={{
+              color: priceImpact > 3 ? "var(--color-red)" : "var(--color-warning)",
+              background: priceImpact > 3 ? "rgba(255,75,75,0.08)" : "rgba(255,199,79,0.08)",
+            }}
+          >
+            <AlertTriangle size={12} />
+            Price impact {priceImpact.toFixed(2)}%
+          </div>
+        )}
+
+        {/* ── CTA button ── */}
+        <button
+          onClick={execute}
+          disabled={status === "loading" || isBelowMin || isInsufficient || (authenticated && (!amount || quoting))}
+          className="flex h-12 w-full items-center justify-center gap-2 rounded-xl text-[14px] font-bold transition-[filter,opacity] disabled:opacity-100"
+          style={
+            isBelowMin || isInsufficient
+              ? { background: "var(--bg-tertiary-solid)", color: "var(--text-secondary)" }
+              : !authenticated
+              ? { background: "var(--bg-tertiary-solid)", color: "var(--text-secondary)" }
+              : buy
+              ? { background: "var(--color-green)", color: "#000" }
+              : { background: "var(--color-red)", color: "#fff" }
+          }
+        >
+          <AnimatePresence mode="wait" initial={false}>
+            {status === "loading" ? (
+              <motion.span key="l" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <Loader2 size={16} className="animate-spin" />
+              </motion.span>
+            ) : status === "success" ? (
+              <motion.span key="s" initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="flex items-center gap-2">
+                <Check size={16} /> Confirmed
+              </motion.span>
+            ) : isBelowMin ? (
+              <motion.span key="min" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                Minimum amount $2
+              </motion.span>
+            ) : isInsufficient ? (
+              <motion.span key="ins" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                {buy ? "Buy" : "Sell"} {token.symbol}
+              </motion.span>
+            ) : (
+              <motion.span key="t" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                {!authenticated ? "Connect wallet" : `${buy ? "Buy" : "Sell"} ${token.symbol}`}
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </button>
+
+        {/* ── Unverified notice ── */}
+        <div
+          className="flex items-center justify-between rounded-lg px-3 py-2 text-[12px]"
+          style={{
+            color: "var(--color-warning)",
+            background: "rgba(255,199,79,0.06)",
+            border: "1px solid rgba(255,199,79,0.10)",
+          }}
+        >
+          <span className="flex items-center gap-2">
+            <AlertTriangle size={12} className="shrink-0" />
+            Unverified token
+          </span>
+          <Info size={13} className="shrink-0 opacity-60" />
+        </div>
+
+        {status === "error" && (
+          <p className="text-center text-[12px] text-red">{error}</p>
+        )}
       </div>
-
-      {status === "error" && (
-        <p className="mt-2 text-center text-[12px] text-red">{error}</p>
-      )}
     </div>
   );
 }

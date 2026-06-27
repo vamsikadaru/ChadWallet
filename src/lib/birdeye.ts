@@ -589,6 +589,46 @@ export async function getTopTraders(address: string): Promise<TopTrader[]> {
   }
 }
 
+/** Tokens with highest 24h price gains (BirdEye tokenlist, sorted desc by price change). */
+export async function getGainers(): Promise<Token[]> {
+  try {
+    const res = await fetch(
+      `${apiBase()}/api/birdeye?type=tokenlist&sort_by=price_change_24h_percent&sort_type=desc&min_liquidity=100000&limit=20`,
+      { next: { revalidate: 30 } }
+    );
+    const json = await res.json();
+    if (!json?.fallback && Array.isArray(json?.data?.tokens) && json.data.tokens.length) {
+      return (json.data.tokens as BirdeyeRaw[])
+        .map((r, i) => normalize(r, i))
+        .filter((t) => t.priceChange24h > 0);
+    }
+  } catch { /* fall through to trending fallback */ }
+  const trending = await getTrendingTokens();
+  return [...trending]
+    .filter((t) => t.priceChange24h > 0)
+    .sort((a, b) => b.priceChange24h - a.priceChange24h);
+}
+
+/** Tokens with largest 24h price drops (BirdEye tokenlist, sorted asc by price change). */
+export async function getLosers(): Promise<Token[]> {
+  try {
+    const res = await fetch(
+      `${apiBase()}/api/birdeye?type=tokenlist&sort_by=price_change_24h_percent&sort_type=asc&min_liquidity=100000&limit=20`,
+      { next: { revalidate: 30 } }
+    );
+    const json = await res.json();
+    if (!json?.fallback && Array.isArray(json?.data?.tokens) && json.data.tokens.length) {
+      return (json.data.tokens as BirdeyeRaw[])
+        .map((r, i) => normalize(r, i))
+        .filter((t) => t.priceChange24h < 0);
+    }
+  } catch { /* fall through to trending fallback */ }
+  const trending = await getTrendingTokens();
+  return [...trending]
+    .filter((t) => t.priceChange24h < 0)
+    .sort((a, b) => a.priceChange24h - b.priceChange24h);
+}
+
 /** Curated major Solana tokens — static metadata so they always render,
  *  live price/stats overlaid from BirdEye when available. */
 const CRYPTO_LIST: { address: string; symbol: string; name: string; logoURI: string }[] = [

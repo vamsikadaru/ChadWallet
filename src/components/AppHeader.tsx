@@ -10,12 +10,14 @@ import { handleFromAddress, avatarGradient, monogram } from "@/lib/handle";
 import { truncateAddress, compact } from "@/lib/format";
 import { usePortfolio } from "@/lib/usePortfolio";
 import Logo from "./Logo";
+import DepositModal from "./DepositModal";
 
 export default function AppHeader() {
   const { user, logout } = usePrivy();
   const { address } = useSolanaWallet();
   const { netWorth } = usePortfolio();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [depositOpen, setDepositOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [blur, setBlur] = useState(
     () => typeof window !== "undefined" && localStorage.getItem("blur-balances") === "1"
@@ -54,6 +56,7 @@ export default function AppHeader() {
   const openSearch = () => window.dispatchEvent(new Event("open-search"));
 
   return (
+    <>
     <header className="flex shrink-0 items-center gap-3 px-1 py-1">
       {/* Logo */}
       <div className="shrink-0 px-1">
@@ -89,12 +92,12 @@ export default function AppHeader() {
             ${netWorth > 0 ? netWorth.toLocaleString("en-US", { maximumFractionDigits: 2 }) : "0.00"}{" "}
             <span className="text-xs text-text-secondary">cash</span>
           </span>
-          <Link
-            href="/deposit"
+          <button
+            onClick={() => setDepositOpen(true)}
             className="text-xs font-bold text-accent-primary hover:opacity-80"
           >
             Deposit more
-          </Link>
+          </button>
         </div>
 
         {/* Portfolio + avatar dropdown */}
@@ -168,13 +171,12 @@ export default function AppHeader() {
                 >
                   <Activity size={14} /> Activity
                 </Link>
-                <Link
-                  href="/deposit"
-                  onClick={() => setMenuOpen(false)}
-                  className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] text-text-primary transition-colors hover:bg-bg-tertiary"
+                <button
+                  onClick={() => { setMenuOpen(false); setDepositOpen(true); }}
+                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] text-text-primary transition-colors hover:bg-bg-tertiary"
                 >
                   <ArrowDownToLine size={14} /> Deposit
-                </Link>
+                </button>
                 <button
                   onClick={toggleBlur}
                   className="flex w-full items-center justify-between gap-2.5 rounded-lg px-3 py-2 text-[13px] text-text-primary transition-colors hover:bg-bg-tertiary"
@@ -212,5 +214,9 @@ export default function AppHeader() {
         </div>
       </div>
     </header>
+
+    <DepositModal open={depositOpen} onClose={() => setDepositOpen(false)} />
+    </>
   );
 }
+

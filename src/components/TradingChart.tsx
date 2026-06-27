@@ -24,10 +24,8 @@ function smartPrice(price: number): string {
   return `$${price.toFixed(Math.min(dp, 10))}`;
 }
 
-/**
- * Candlestick + volume chart. Pass `height="fill"` to auto-size to the
- * parent container via ResizeObserver (use inside a flex-1 wrapper).
- */
+interface OhlcBar { open: number; high: number; low: number; close: number; }
+
 export default function TradingChart({
   candles,
   scale = 1,
@@ -43,6 +41,7 @@ export default function TradingChart({
   const [resolvedHeight, setResolvedHeight] = useState(
     typeof height === "number" ? height : 400
   );
+  const [hoveredBar, setHoveredBar] = useState<OhlcBar | null>(null);
 
   useEffect(() => {
     if (height !== "fill" || !wrapRef.current) return;
@@ -118,6 +117,27 @@ export default function TradingChart({
 
     chart.timeScale().fitContent();
 
+    /* ── crosshair move → OHLC overlay ── */
+    chart.subscribeCrosshairMove((param) => {
+      if (!param.time || !param.seriesData.size) {
+        setHoveredBar(null);
+        return;
+      }
+      const raw = param.seriesData.get(candleSeries) as
+        | { open: number; high: number; low: number; close: number }
+        | undefined;
+      if (raw) {
+        setHoveredBar({
+          open:  raw.open  / scale,
+          high:  raw.high  / scale,
+          low:   raw.low   / scale,
+          close: raw.close / scale,
+        });
+      } else {
+        setHoveredBar(null);
+      }
+    });
+
     const handleResize = () => {
       if (containerRef.current)
         chart.applyOptions({ width: containerRef.current.clientWidth });
@@ -131,12 +151,38 @@ export default function TradingChart({
     };
   }, [candles, scale, resolvedHeight]);
 
+  /* ── OHLC tooltip overlay ── */
+  const ohlcOverlay = hoveredBar && (
+    <div className="pointer-events-none absolute left-2 top-2 z-10 flex items-center gap-3 rounded-md bg-bg-secondary/80 px-2.5 py-1.5 backdrop-blur-sm">
+      {(["O", "H", "L", "C"] as const).map((label) => {
+        const key = { O: "open", H: "high", L: "low", C: "close" }[label] as keyof OhlcBar;
+        const val = hoveredBar[key];
+        const up = hoveredBar.close >= hoveredBar.open;
+        const isC = label === "C";
+        return (
+          <span key={label} className="flex items-center gap-1 font-mono text-[11px]">
+            <span className="text-text-tertiary">{label}</span>
+            <span style={{ color: isC ? (up ? UP : DOWN) : "rgba(255,255,255,0.75)" }}>
+              {smartPrice(val)}
+            </span>
+          </span>
+        );
+      })}
+    </div>
+  );
+
   if (height === "fill") {
     return (
-      <div ref={wrapRef} className="w-full h-full">
+      <div ref={wrapRef} className="relative h-full w-full">
+        {ohlcOverlay}
         <div ref={containerRef} className="w-full" style={{ height: resolvedHeight }} />
       </div>
     );
   }
-  return <div ref={containerRef} className="w-full" style={{ height: resolvedHeight }} />;
+  return (
+    <div className="relative w-full" style={{ height: resolvedHeight }}>
+      {ohlcOverlay}
+      <div ref={containerRef} className="w-full" style={{ height: resolvedHeight }} />
+    </div>
+  );
 }
