@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   createChart,
   ColorType,
@@ -14,22 +14,19 @@ import type { Candle } from "@/lib/birdeye";
 const UP = "#14F195";
 const DOWN = "#FF4B4B";
 
-/** Auto-precision formatter so micro-cap prices like $0.000014 render correctly. */
 function smartPrice(price: number): string {
   if (!isFinite(price) || price === 0) return "$0";
   const abs = Math.abs(price);
   if (abs >= 1e6) return `$${(price / 1e6).toFixed(2)}M`;
   if (abs >= 1e3) return `$${(price / 1e3).toFixed(2)}K`;
   if (abs >= 1) return `$${price.toFixed(4)}`;
-  // For values < 1: show enough decimal places to have 2 significant figures.
   const dp = Math.max(2, Math.ceil(-Math.log10(abs)) + 2);
   return `$${price.toFixed(Math.min(dp, 10))}`;
 }
 
 /**
- * Candlestick + volume chart themed to the design system. Candles come from
- * BirdEye OHLCV. `scale` lets the trade page render in price or market-cap
- * terms by multiplying every value (MCap = price × supply factor).
+ * Candlestick + volume chart. Pass `height="fill"` to auto-size to the
+ * parent container via ResizeObserver (use inside a flex-1 wrapper).
  */
 export default function TradingChart({
   candles,
@@ -38,10 +35,26 @@ export default function TradingChart({
 }: {
   candles: Candle[];
   scale?: number;
-  height?: number;
+  height?: number | "fill";
 }) {
+  const wrapRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
+  const [resolvedHeight, setResolvedHeight] = useState(
+    typeof height === "number" ? height : 400
+  );
+
+  useEffect(() => {
+    if (height !== "fill" || !wrapRef.current) return;
+    const el = wrapRef.current;
+    const ro = new ResizeObserver(() => {
+      if (el.clientHeight > 0) setResolvedHeight(el.clientHeight);
+    });
+    ro.observe(el);
+    if (el.clientHeight > 0) setResolvedHeight(el.clientHeight);
+    return () => ro.disconnect();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [height]);
 
   useEffect(() => {
     if (!containerRef.current || !candles.length) return;
@@ -59,7 +72,7 @@ export default function TradingChart({
         horzLines: { color: "rgba(255,255,255,0.04)" },
       },
       width: containerRef.current.clientWidth,
-      height,
+      height: resolvedHeight,
       crosshair: {
         vertLine: { color: "rgba(255,255,255,0.15)", labelBackgroundColor: "#1A1A24" },
         horzLine: { color: "rgba(255,255,255,0.15)", labelBackgroundColor: "#1A1A24" },
@@ -94,24 +107,20 @@ export default function TradingChart({
       priceFormat: { type: "volume" },
       priceScaleId: "",
     });
-    volSeries.priceScale().applyOptions({
-      scaleMargins: { top: 0.82, bottom: 0 },
-    });
+    volSeries.priceScale().applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
     volSeries.setData(
       candles.map((c) => ({
         time: c.time as UTCTimestamp,
         value: c.volume,
-        color:
-          c.close >= c.open ? "rgba(20,241,149,0.4)" : "rgba(255,75,75,0.4)",
+        color: c.close >= c.open ? "rgba(20,241,149,0.4)" : "rgba(255,75,75,0.4)",
       }))
     );
 
     chart.timeScale().fitContent();
 
     const handleResize = () => {
-      if (containerRef.current) {
+      if (containerRef.current)
         chart.applyOptions({ width: containerRef.current.clientWidth });
-      }
     };
     window.addEventListener("resize", handleResize);
 
@@ -120,7 +129,14 @@ export default function TradingChart({
       chart.remove();
       chartRef.current = null;
     };
-  }, [candles, scale, height]);
+  }, [candles, scale, resolvedHeight]);
 
-  return <div ref={containerRef} className="w-full" style={{ height }} />;
+  if (height === "fill") {
+    return (
+      <div ref={wrapRef} className="w-full h-full">
+        <div ref={containerRef} className="w-full" style={{ height: resolvedHeight }} />
+      </div>
+    );
+  }
+  return <div ref={containerRef} className="w-full" style={{ height: resolvedHeight }} />;
 }

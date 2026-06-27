@@ -48,7 +48,7 @@ export default function SearchCommand() {
     return () => clearTimeout(id);
   }, [q]);
 
-  // Keyboard: "/" opens, Esc closes.
+  // Keyboard: "/" opens, Esc closes. Custom event "open-search" also opens.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = document.activeElement;
@@ -61,8 +61,13 @@ export default function SearchCommand() {
         setOpen(false);
       }
     };
+    const onCustom = () => setOpen(true);
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("open-search", onCustom);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("open-search", onCustom);
+    };
   }, [open]);
 
   const results = useMemo(() => {

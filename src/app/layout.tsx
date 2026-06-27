@@ -48,6 +48,29 @@ export default function RootLayout({
       className={`${syne.variable} ${spaceGrotesk.variable} ${jetbrains.variable}`}
     >
       <body>
+        {/*
+          Early-redirect script: runs before React hydrates.
+          If the user already has a Privy session, hide the page immediately
+          and jump to the last trade page they visited (stored in localStorage),
+          so they never see a landing/loading flash on return visits.
+          The html element is always restored on non-root paths.
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{
+  document.documentElement.style.display="";
+  if(location.pathname!=="/")return;
+  var hasSession=false;
+  try{var t=localStorage.getItem("privy:refresh_token");hasSession=typeof t==="string"&&t[0]==='"'&&t!=='"deprecated"';}
+  catch(e){hasSession=/(?:^|; )privy-session=/.test(document.cookie);}
+  if(!hasSession)return;
+  var last=localStorage.getItem("chadwallet:last-trade");
+  if(!last)return;
+  document.documentElement.style.display="none";
+  location.replace(last);
+}catch(e){document.documentElement.style.display="";}})();`,
+          }}
+        />
         <Providers>
           <AppShell>{children}</AppShell>
         </Providers>
