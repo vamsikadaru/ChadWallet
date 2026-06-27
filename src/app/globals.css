@@ -40,12 +40,35 @@
   --color-text-3: var(--text-3);
 
   --font-display: var(--font-syne), "Syne", sans-serif;
-  --font-body: var(--font-inter), "Inter", sans-serif;
+  --font-body: var(--font-space-grotesk), "Space Grotesk", sans-serif;
   --font-mono: var(--font-jetbrains), "JetBrains Mono", monospace;
 
   --radius-sm: 8px;
   --radius-md: 14px;
   --radius-lg: 20px;
+
+  /* ── fomo-compatible semantic tokens ──────────────────────────
+     Enables bg-bg-primary, text-accent-primary, border-bg-tertiary
+     etc. — matching fomo.family's class naming convention.
+     Accent uses ChadWallet's Solana purple, not fomo's blue.        */
+  --color-bg-primary: #060510;
+  --color-bg-secondary: #12111a;
+  --color-bg-tertiary: #cbd0eb1a;
+  --color-bg-tertiary-solid: #161522;
+  --color-accent-primary: #9945ff;
+  --color-accent-primary-transparent: #9945ff29;
+  --color-accent-secondary: #1d0a3a;
+  --color-green: #14f195;
+  --color-green-transparent: #14f19533;
+  --color-yellow: #ffbf17;
+  --color-yellow-transparent: #ffbf171f;
+  --color-red: #ff622e;
+  --color-red-transparent: #ff622e33;
+  --color-warning: #ffc74f;
+  --color-warning-transparent: #ffc74f1f;
+  --color-text-primary: #f7f7f7;
+  --color-text-secondary: #9899a3;
+  --color-text-tertiary: #ffffff4d;
 }
 
 * {
@@ -55,6 +78,7 @@
 html {
   background: var(--bg-0);
   color-scheme: dark;
+  scroll-behavior: smooth;
 }
 
 body {
@@ -253,6 +277,29 @@ body::-webkit-scrollbar-track {
 .btn-buy:hover {
   filter: brightness(1.08);
 }
+
+/* Solana purple-to-green gradient text — used on hero "Chad", section key words */
+.text-gradient {
+  background: linear-gradient(135deg, #9945ff 10%, #14f195 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Float animation for landing page hero */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-18px); }
+}
+
+/* Phone mockup float — gentler bob with subtle depth shift */
+@keyframes phone-float {
+  0%, 100% { transform: translateY(0px) rotate(-2deg); }
+  50% { transform: translateY(-22px) rotate(-2deg); }
+}
+
+/* Desktop breakpoint (800px) matching fomo.family layout */
+@custom-variant desktop (@media (min-width: 800px));
 
 /* Accessibility: respect reduced motion globally */
 @media (prefers-reduced-motion: reduce) {

@@ -1,18 +1,20 @@
 import type { Metadata, Viewport } from "next";
-import { Syne, Inter, JetBrains_Mono } from "next/font/google";
+import { Syne, Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import Providers from "@/components/Providers";
 import AppShell from "@/components/AppShell";
 
+// Syne: the display/headline font — heavy, geometric, crypto-native
 const syne = Syne({
   variable: "--font-syne",
   subsets: ["latin"],
-  weight: ["600", "700", "800"],
+  weight: ["400", "700", "800"],
   display: "swap",
 });
 
-const inter = Inter({
-  variable: "--font-inter",
+// Space Grotesk: body, nav, UI chrome — clean, readable
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-space-grotesk",
   subsets: ["latin"],
   weight: ["400", "500", "600"],
   display: "swap",
@@ -43,7 +45,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${syne.variable} ${inter.variable} ${jetbrains.variable}`}
+      className={`${syne.variable} ${spaceGrotesk.variable} ${jetbrains.variable}`}
     >
       <body>
         <Providers>
