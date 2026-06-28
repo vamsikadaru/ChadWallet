@@ -62,6 +62,13 @@ export async function GET(req: Request) {
   }
   const url = `${BIRDEYE}${path}${forwarded.toString() ? `?${forwarded}` : ""}`;
 
+  // Live endpoints (trades, holders) must never serve stale cached responses.
+  // All others are safe to cache server-side for 30 s to avoid BirdEye rate limits.
+  const liveTypes = new Set(["trades", "holder"]);
+  const fetchOpts: RequestInit = liveTypes.has(type)
+    ? { cache: "no-store" }
+    : { next: { revalidate: 30 } };
+
   try {
     const res = await fetch(url, {
       headers: {
@@ -69,8 +76,7 @@ export async function GET(req: Request) {
         "x-chain": "solana",
         accept: "application/json",
       },
-      // Revalidate on the server; clients can poll on top of this.
-      next: { revalidate: 30 },
+      ...fetchOpts,
     });
 
     if (!res.ok) {
@@ -81,8 +87,11 @@ export async function GET(req: Request) {
     }
 
     const data = await res.json();
+    const cacheHeader = liveTypes.has(type)
+      ? "no-store, no-cache"
+      : "s-maxage=30, stale-while-revalidate=60";
     return NextResponse.json(data, {
-      headers: { "Cache-Control": "s-maxage=30, stale-while-revalidate=60" },
+      headers: { "Cache-Control": cacheHeader },
     });
   } catch {
     return NextResponse.json({ error: "fetch_failed", fallback: true }, { status: 200 });

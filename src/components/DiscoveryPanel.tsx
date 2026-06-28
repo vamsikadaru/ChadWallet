@@ -204,8 +204,8 @@ function TokensTab({ activeAddress }: { activeAddress?: string }) {
     <>
       {subFilterPills}
 
-      {/* Token list */}
-      <div className="no-scrollbar flex flex-1 flex-col gap-px overflow-y-scroll overflow-x-hidden px-2">
+      {/* Token list — pb-16 on mobile leaves room above the BottomNav */}
+      <div className="no-scrollbar flex flex-1 flex-col gap-px overflow-y-scroll overflow-x-hidden px-2 pb-16 lg:pb-0">
         {isLoading
           ? Array.from({ length: 10 }).map((_, i) => (
               <div key={i} className="flex items-center gap-2.5 rounded-lg px-2 py-2">
@@ -371,8 +371,8 @@ export default function DiscoveryPanel({ onCollapse }: { onCollapse?: () => void
           {/* Fade-out gradient on right edge */}
           <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-bg-secondary to-transparent" />
         </div>
-        {/* Collapse button */}
-        <div className="ml-auto flex shrink-0 items-center gap-1">
+        {/* Collapse button — desktop only */}
+        <div className="ml-auto hidden shrink-0 items-center gap-1 lg:flex">
           <button
             onClick={() => onCollapse?.()}
             className="p-1 text-text-tertiary transition-colors hover:text-text-primary focus:outline-none"

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { usePrivy } from "@privy-io/react-auth";
+import { usePathname } from "next/navigation";
 import Landing from "./Landing";
 import AppHeader from "./AppHeader";
 import DiscoveryPanel from "./DiscoveryPanel";
@@ -35,9 +36,17 @@ function ExpandIcon() {
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const { ready, authenticated } = usePrivy();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const pathname = usePathname();
+
+  // On the home "/" route, mobile shows the DiscoveryPanel as a full-screen token list
+  // instead of the spinner/redirect that desktop sees.
+  const isMarkets = pathname === "/";
 
   if (!ready) return <BootSplash />;
   if (!authenticated) return <Landing />;
+
+  // Width class for the sidebar container (only used on desktop via lg: prefix)
+  const sidebarWidth = sidebarOpen || isMarkets ? "lg:w-70 2xl:lg:w-85" : "lg:w-8";
 
   return (
     <div
@@ -52,19 +61,21 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       {/* Body */}
       <div className="flex min-h-0 flex-1 gap-3 pb-2">
         {/*
-         * Left panel — transition-[width] so the chart fills the space smoothly
-         * when collapsed, matching fomo's DOM exactly.
+         * Left panel:
+         * - Mobile "/" (Markets): flex, full-width — becomes the entire screen
+         * - Mobile "/trade/…": hidden
+         * - Desktop: lg:flex, width controlled by sidebarOpen state
          */}
         <div
-          className={`hidden shrink-0 flex-col min-h-0 overflow-hidden transition-[width] duration-150 ease-out lg:flex ${
-            sidebarOpen ? "w-70 2xl:w-85" : "w-8"
+          className={`shrink-0 flex-col min-h-0 overflow-hidden transition-[width] duration-150 ease-out ${sidebarWidth} ${
+            isMarkets ? "flex w-full" : "hidden lg:flex"
           }`}
         >
-          {sidebarOpen ? (
+          {sidebarOpen || isMarkets ? (
             <DiscoveryPanel onCollapse={() => setSidebarOpen(false)} />
           ) : (
-            /* Collapsed strip — just the expand button */
-            <div className="flex flex-1 flex-col items-center rounded-xl border border-bg-tertiary py-3">
+            /* Collapsed strip — desktop only */
+            <div className="hidden lg:flex flex-1 flex-col items-center rounded-xl border border-bg-tertiary py-3">
               <button
                 onClick={() => setSidebarOpen(true)}
                 className="p-1 text-text-secondary transition-colors hover:text-text-primary"
@@ -76,8 +87,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           )}
         </div>
 
-        {/* Main content */}
-        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden pr-4">
+        {/* Main content — hidden on mobile when on the Markets "/" route */}
+        <main
+          className={`min-h-0 min-w-0 flex-1 flex-col overflow-hidden pr-4 ${
+            isMarkets ? "hidden lg:flex" : "flex"
+          }`}
+        >
           {children}
         </main>
       </div>

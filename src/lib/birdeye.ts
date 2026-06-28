@@ -89,7 +89,7 @@ export async function getTrendingTokens(): Promise<Token[]> {
   try {
     const res = await fetch(
       `${apiBase()}/api/birdeye?type=trending&sort_by=rank&sort_type=asc&limit=20`,
-      { next: { revalidate: 30 } }
+      { cache: "no-store" }
     );
     const json = await res.json();
     if (json?.fallback || !json?.data?.tokens) return MOCK_TOKENS;
@@ -126,7 +126,7 @@ export async function searchTokens(keyword: string): Promise<Token[]> {
     const res = await fetch(
       `${apiBase()}/api/birdeye?type=search&chain=solana&keyword=${encodeURIComponent(q)}` +
         `&target=token&sort_by=volume_24h_usd&sort_type=desc&offset=0&limit=12`,
-      { next: { revalidate: 30 } }
+      { cache: "no-store" }
     );
     const json = await res.json();
     if (json?.fallback || !json?.data?.items) return [];
@@ -166,7 +166,7 @@ export async function getTokenOverview(address: string): Promise<Token | null> {
   try {
     const res = await fetch(
       `${apiBase()}/api/birdeye?type=token_overview&address=${address}`,
-      { next: { revalidate: 30 } }
+      { cache: "no-store" }
     );
     const json = await res.json();
     if (json?.fallback || !json?.data) {
@@ -219,7 +219,7 @@ export async function getPriceHistory(
     const res = await fetch(
       `${apiBase()}/api/birdeye?type=history_price&address=${address}` +
         `&address_type=token&interval=${win.type}&time_from=${from}&time_to=${now}`,
-      { next: { revalidate: 60 } }
+      { cache: "no-store" }
     );
     const json = await res.json();
     const items = json?.data?.items;
@@ -243,7 +243,7 @@ export async function getMultiPrice(
   try {
     const res = await fetch(
       `${apiBase()}/api/birdeye?type=multi_price&list_address=${addresses.join(",")}`,
-      { next: { revalidate: 30 } }
+      { cache: "no-store" }
     );
     const json = await res.json();
     if (json?.fallback || !json?.data) return {};
@@ -267,7 +267,7 @@ export async function getMultiQuote(
   try {
     const res = await fetch(
       `${apiBase()}/api/birdeye?type=multi_price&list_address=${addresses.join(",")}`,
-      { next: { revalidate: 20 } }
+      { cache: "no-store" }
     );
     const json = await res.json();
     if (json?.fallback || !json?.data) return {};
@@ -314,7 +314,7 @@ export async function getOHLCV(
     const res = await fetch(
       `${apiBase()}/api/birdeye?type=ohlcv&address=${address}` +
         `&interval=${win.interval}&time_from=${from}&time_to=${now}`,
-      { next: { revalidate: 30 } }
+      { cache: "no-store" }
     );
     const json = await res.json();
     const items = json?.data?.items;
@@ -379,7 +379,7 @@ export async function getCandles(
     const res = await fetch(
       `${apiBase()}/api/birdeye?type=history_price&address=${address}` +
         `&address_type=token&interval=${win.interval}&time_from=${from}&time_to=${to}`,
-      { next: { revalidate: 60 } }
+      { cache: "no-store" }
     );
     const json = await res.json();
     const items = json?.data?.items;
@@ -410,7 +410,7 @@ export async function getTokenHolders(
   try {
     const res = await fetch(
       `${apiBase()}/api/birdeye?type=holder&address=${address}&offset=0&limit=20`,
-      { next: { revalidate: 60 } }
+      { cache: "no-store" }
     );
     const json = await res.json();
     const items = json?.data?.items;
@@ -522,7 +522,7 @@ export async function getPrice(
   try {
     const res = await fetch(
       `${apiBase()}/api/birdeye?type=price&address=${address}`,
-      { next: { revalidate: 20 } }
+      { cache: "no-store" }
     );
     const json = await res.json();
     const data = json?.data;
@@ -542,7 +542,7 @@ export async function getTokenSecurity(
   try {
     const res = await fetch(
       `${apiBase()}/api/birdeye?type=security&address=${address}`,
-      { next: { revalidate: 120 } }
+      { cache: "no-store" }
     );
     const json = await res.json();
     const d = json?.data;
@@ -565,7 +565,7 @@ export async function getNewListings(): Promise<Token[]> {
   try {
     const res = await fetch(
       `${apiBase()}/api/birdeye?type=new_listing&limit=20`,
-      { next: { revalidate: 60 } }
+      { cache: "no-store" }
     );
     const json = await res.json();
     const items = json?.data?.items;
@@ -584,7 +584,7 @@ export async function getTopTraders(address: string): Promise<TopTrader[]> {
     const res = await fetch(
       `${apiBase()}/api/birdeye?type=top_traders&address=${address}` +
         `&time_frame=24h&sort_type=desc&sort_by=volume&limit=10`,
-      { next: { revalidate: 60 } }
+      { cache: "no-store" }
     );
     const json = await res.json();
     const items = json?.data?.items;
@@ -610,7 +610,7 @@ export async function getGainers(): Promise<Token[]> {
   try {
     const res = await fetch(
       `${apiBase()}/api/birdeye?type=tokenlist&sort_by=price_change_24h_percent&sort_type=desc&min_liquidity=100000&limit=20`,
-      { next: { revalidate: 30 } }
+      { cache: "no-store" }
     );
     const json = await res.json();
     if (!json?.fallback && Array.isArray(json?.data?.tokens) && json.data.tokens.length) {
@@ -630,7 +630,7 @@ export async function getLosers(): Promise<Token[]> {
   try {
     const res = await fetch(
       `${apiBase()}/api/birdeye?type=tokenlist&sort_by=price_change_24h_percent&sort_type=asc&min_liquidity=100000&limit=20`,
-      { next: { revalidate: 30 } }
+      { cache: "no-store" }
     );
     const json = await res.json();
     if (!json?.fallback && Array.isArray(json?.data?.tokens) && json.data.tokens.length) {
