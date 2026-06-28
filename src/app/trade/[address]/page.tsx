@@ -418,8 +418,8 @@ export default function TradePage({
         </div>
       </div>
 
-      {/* ── RIGHT PANEL (desktop) ── */}
-      <aside className="hidden w-[268px] shrink-0 flex-col overflow-hidden rounded-xl border border-bg-tertiary bg-bg-secondary lg:flex">
+      {/* ── RIGHT PANEL — visible at md+ (768px), so mobile desktop mode gets it ── */}
+      <aside className="hidden w-[268px] shrink-0 flex-col overflow-hidden rounded-xl border border-bg-tertiary bg-bg-secondary md:flex">
         <div className="no-scrollbar flex-1 overflow-y-auto">
           <SectionBoundary label="trade panel">
             <TradePanel token={display} />
@@ -451,8 +451,8 @@ export default function TradePage({
         </div>
       </aside>
 
-      {/* ── Narrow-viewport: floating Trade button (shown below lg, where right panel is hidden) ── */}
-      <div className="fixed inset-x-0 bottom-4 z-30 px-4 lg:hidden">
+      {/* ── Very-narrow fallback: floating Trade button (only below md where right panel is hidden) ── */}
+      <div className="fixed inset-x-0 bottom-4 z-30 px-4 md:hidden">
         <button
           onClick={() => setDrawerOpen(true)}
           className="btn-buy flex h-[52px] w-full items-center justify-center rounded-[var(--radius-md)] text-[15px] font-bold text-white shadow-lg"
@@ -463,7 +463,7 @@ export default function TradePage({
 
       <AnimatePresence>
         {drawerOpen && (
-          <div className="fixed inset-0 z-50 lg:hidden">
+          <div className="fixed inset-0 z-50 md:hidden">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
