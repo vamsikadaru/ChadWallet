@@ -240,10 +240,10 @@ export default function TradePage({
   ];
 
   return (
-    <div className="flex h-full min-h-0 gap-3">
+    <div className="flex flex-col gap-3 md:h-full md:min-h-0 md:flex-row">
 
       {/* ── CENTER COLUMN ── */}
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-bg-tertiary">
+      <div className="flex flex-col min-w-0 overflow-hidden rounded-xl border border-bg-tertiary md:min-h-0 md:flex-1">
 
         {/* Token header bar */}
         <div className="flex shrink-0 items-center gap-0 border-b border-bg-tertiary bg-bg-secondary px-4 py-2.5 overflow-hidden">
@@ -329,11 +329,11 @@ export default function TradePage({
         </div>
 
         {/* Chart area */}
-        <div className="flex min-h-0 flex-1 flex-col">
-          {/* Single unified controls bar */}
-          <div className="flex shrink-0 items-center gap-2 border-b border-bg-tertiary px-3 py-1.5">
+        <div className="flex flex-col md:min-h-0 md:flex-1">
+          {/* Single unified controls bar — scrollable so it never clips on narrow viewports */}
+          <div className="no-scrollbar flex shrink-0 items-center gap-2 overflow-x-auto border-b border-bg-tertiary px-3 py-1.5">
             {/* Range picker */}
-            <div className="flex items-center gap-0.5">
+            <div className="flex shrink-0 items-center gap-0.5">
               {RANGES.map((r) => (
                 <button
                   key={r}
@@ -352,7 +352,7 @@ export default function TradePage({
             <div className="h-4 w-px shrink-0 bg-bg-tertiary" />
 
             {/* Price / MCap */}
-            <div className="flex items-center gap-0.5 rounded-full border border-bg-tertiary bg-bg-primary p-0.5">
+            <div className="flex shrink-0 items-center gap-0.5 rounded-full border border-bg-tertiary bg-bg-primary p-0.5">
               {(["price", "mcap"] as const).map((d) => (
                 <button
                   key={d}
@@ -375,7 +375,7 @@ export default function TradePage({
               ["mySwaps", "My swaps", mySwapsOnly, setMySwapsOnly],
               ["friendsOnly", "Friends only", friendsOnly, setFriendsOnly],
             ] as [string, string, boolean, (v: boolean) => void][]).map(([id, label, checked, setter]) => (
-              <label key={id} className="flex cursor-pointer select-none items-center gap-1.5">
+              <label key={id} className="flex shrink-0 cursor-pointer select-none items-center gap-1.5">
                 <input
                   type="checkbox"
                   checked={checked}
@@ -387,8 +387,8 @@ export default function TradePage({
             ))}
           </div>
 
-          {/* Chart fills remaining height */}
-          <div className="min-h-0 flex-1">
+          {/* Mobile: square. md: capped (mobile-in-desktop-mode has 2000px+ virtual height). lg+: fill. */}
+          <div className="aspect-square w-full shrink-0 md:aspect-auto md:min-h-0 md:flex-1 md:max-h-[500px] lg:max-h-none">
             <SectionBoundary label="chart">
               {candles.length ? (
                 <TradingChart candles={candles} scale={scale} height="fill" onLoadEarlier={handleLoadEarlier} />
@@ -430,9 +430,9 @@ export default function TradePage({
           </div>
         </div>
 
-        {/* Resize handle */}
+        {/* Resize handle — desktop only */}
         <div
-          className="group relative flex h-3 shrink-0 cursor-row-resize items-center justify-center"
+          className="group relative hidden h-3 shrink-0 cursor-row-resize items-center justify-center md:flex"
           onMouseDown={(e) => { e.preventDefault(); startResize(e.clientY); }}
           onTouchStart={(e) => startResize(e.touches[0].clientY)}
         >
@@ -442,8 +442,8 @@ export default function TradePage({
           </span>
         </div>
 
-        {/* Bottom tabs: Swaps / Holders / Thesis */}
-        <div className="flex shrink-0 flex-col border-t border-bg-tertiary" style={{ height: tabsHeight }}>
+        {/* Bottom tabs — fixed-height + inner scroll on desktop; natural height on mobile */}
+        <div className="flex flex-col border-t border-bg-tertiary md:shrink-0" style={{ height: tabsHeight }}>
           <div className="flex shrink-0 items-center gap-4 border-b border-bg-tertiary px-4 py-2">
             {(["swaps", "holders", "thesis"] as const).map((t) => (
               <button

@@ -55,22 +55,24 @@ export default function TradingChart({
   const volRef         = useRef<ISeriesApi<"Histogram"> | null>(null);
   const isPressedRef   = useRef(false);
   const lastHoverRef   = useRef<HoverState | null>(null);
-  const loadingMoreRef = useRef(false);
-  const scaleRef       = useRef(scale);
-  const dataLoadedRef  = useRef(false); // tracks whether setData has been called at least once
+  const loadingMoreRef    = useRef(false);
+  const scaleRef          = useRef(scale);
+  const dataLoadedRef     = useRef(false);
+  const latestCandlesRef  = useRef<Candle[]>([]); // always tracks current candles prop
 
   /* Mutable refs so chart-creation subscriptions always see current values */
-  const firstCandleTimeRef  = useRef(0);
-  const onLoadEarlierRef    = useRef<((t: number) => void) | undefined>(undefined);
+  const firstCandleTimeRef = useRef(0);
+  const onLoadEarlierRef   = useRef<((t: number) => void) | undefined>(undefined);
 
   const [resolvedHeight, setResolvedHeight] = useState(
     typeof height === "number" ? height : 400
   );
   const [hoverState, setHoverState] = useState<HoverState | null>(null);
 
-  /* Keep mutable refs in sync */
-  onLoadEarlierRef.current = onLoadEarlier;
-  scaleRef.current = scale;
+  /* Keep mutable refs in sync every render */
+  onLoadEarlierRef.current  = onLoadEarlier;
+  scaleRef.current          = scale;
+  latestCandlesRef.current  = candles;
 
   /* ── fill-mode height observer ── */
   useEffect(() => {
@@ -130,6 +132,24 @@ export default function TradingChart({
     });
     volSeries.priceScale().applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
     volRef.current = volSeries;
+
+    /* If candles are already loaded (e.g. cached), apply them immediately.
+       Without this, the ResizeObserver fires → chart recreates → data-update
+       effect doesn't re-run (candles unchanged) → chart appears empty. */
+    const initialCandles = latestCandlesRef.current;
+    if (initialCandles.length) {
+      const s = scaleRef.current;
+      candleSeries.setData(initialCandles.map((c) => ({
+        time: c.time as UTCTimestamp, open: c.open * s, high: c.high * s, low: c.low * s, close: c.close * s,
+      })));
+      volSeries.setData(initialCandles.map((c) => ({
+        time: c.time as UTCTimestamp, value: c.volume,
+        color: c.close >= c.open ? "rgba(20,241,149,0.4)" : "rgba(255,75,75,0.4)",
+      })));
+      firstCandleTimeRef.current = initialCandles[0].time;
+      dataLoadedRef.current = true;
+      chart.timeScale().fitContent();
+    }
 
     /* Touch/mouse press for OHLC tooltip */
     const el = containerRef.current;

@@ -122,6 +122,67 @@ async function getGeckoTrades(mint: string): Promise<NextResponse> {
   }
 }
 
+// ─── GeckoTerminal fallback for /ohlcv ──────────────────────────────────────
+// Maps our interval strings to GeckoTerminal timeframe + aggregate params.
+const INTERVAL_TO_GT: Record<string, { tf: string; agg: number; limit: number }> = {
+  "15m": { tf: "minute", agg: 15, limit: 200 },
+  "1H":  { tf: "hour",   agg: 1,  limit: 200 },
+  "4H":  { tf: "hour",   agg: 4,  limit: 200 },
+  "12H": { tf: "hour",   agg: 12, limit: 200 },
+  "1D":  { tf: "day",    agg: 1,  limit: 400 },
+};
+
+async function getGeckoOHLCV(mint: string, interval: string, timeTo: number): Promise<NextResponse> {
+  const gt = INTERVAL_TO_GT[interval];
+  if (!gt || !mint) return NextResponse.json({ fallback: true });
+
+  try {
+    // Pool address — cached 1 hour (same as trades fallback)
+    const poolsRes = await fetch(
+      `${GECKO}/networks/solana/tokens/${mint}/pools?page=1`,
+      { headers: GECKO_H, next: { revalidate: 3600 } } as RequestInit
+    );
+    if (!poolsRes.ok) return NextResponse.json({ fallback: true });
+    const poolsJson = await poolsRes.json();
+    const pools: unknown[] = poolsJson?.data ?? [];
+    if (!pools.length) return NextResponse.json({ fallback: true });
+
+    const topPoolId   = ((pools[0] as Record<string, unknown>).id as string) ?? "";
+    const pairAddress = topPoolId.replace("solana_", "");
+    if (!pairAddress) return NextResponse.json({ fallback: true });
+
+    // OHLCV candles — cached 60 s
+    const ts = timeTo > 0 ? timeTo : Math.floor(Date.now() / 1000);
+    const ohlcvRes = await fetch(
+      `${GECKO}/networks/solana/pools/${pairAddress}/ohlcv/${gt.tf}` +
+        `?aggregate=${gt.agg}&limit=${gt.limit}&currency=usd&before_timestamp=${ts}`,
+      { headers: GECKO_H, next: { revalidate: 60 } } as RequestInit
+    );
+    if (!ohlcvRes.ok) return NextResponse.json({ fallback: true });
+    const ohlcvJson = await ohlcvRes.json();
+
+    // GeckoTerminal: [timestamp_seconds, open, high, low, close, volume_base]
+    // Returns newest-first; our parser expects oldest-first.
+    const list: unknown[] = ohlcvJson?.data?.attributes?.ohlcv_list ?? [];
+    if (!list.length) return NextResponse.json({ fallback: true });
+
+    const items = (list as [number, number, number, number, number, number][])
+      .map(([ts2, o, h, l, c, v = 0]) => {
+        if (!isFinite(c) || c <= 0) return null;
+        return { unixTime: ts2, o, h, l, c, v: v ?? 0 };
+      })
+      .filter(Boolean)
+      .reverse(); // oldest-first
+
+    return NextResponse.json(
+      { success: true, data: { items } },
+      { headers: { "Cache-Control": "s-maxage=60, stale-while-revalidate=120" } }
+    );
+  } catch {
+    return NextResponse.json({ fallback: true });
+  }
+}
+
 // ─── Solana RPC fallback for /holder ────────────────────────────────────────
 // Resolves the top-20 holders of an SPL token via two public RPC calls
 // (getTokenLargestAccounts + getMultipleAccounts). Returns data in
@@ -239,6 +300,11 @@ export async function GET(req: Request) {
       // BirdEye HTTP error — fall back to free alternatives for key endpoints
       if (type === "holder") return getSolanaHolders(searchParams.get("address") ?? "");
       if (type === "trades") return getGeckoTrades(searchParams.get("address") ?? "");
+      if (type === "ohlcv") return getGeckoOHLCV(
+        searchParams.get("address") ?? "",
+        searchParams.get("interval") ?? "1H",
+        parseInt(searchParams.get("time_to") ?? "0")
+      );
       return NextResponse.json({ error: `BirdEye ${res.status}`, fallback: true });
     }
 
@@ -249,6 +315,11 @@ export async function GET(req: Request) {
     if (data?.success === false) {
       if (type === "holder") return getSolanaHolders(searchParams.get("address") ?? "");
       if (type === "trades") return getGeckoTrades(searchParams.get("address") ?? "");
+      if (type === "ohlcv") return getGeckoOHLCV(
+        searchParams.get("address") ?? "",
+        searchParams.get("interval") ?? "1H",
+        parseInt(searchParams.get("time_to") ?? "0")
+      );
       return NextResponse.json({ error: "birdeye_error", fallback: true });
     }
 

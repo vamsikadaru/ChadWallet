@@ -19,7 +19,7 @@ function BootSplash() {
   );
 }
 
-/* Expand arrow — same chevrons as fomo's collapse SVG but rotated 180° */
+/* Expand arrow */
 function ExpandIcon() {
   return (
     <svg width="12" height="12" viewBox="0 0 14 14" fill="none" className="rotate-180">
@@ -40,33 +40,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   // md (≥768 px) = mobile "Request Desktop Site" — narrower sidebar
   // lg (≥1024 px) = real desktop — full-width sidebar
-  const sidebarWidth = sidebarOpen ? "md:w-48 lg:w-70 2xl:w-85" : "md:w-8";
+  const sidebarWidth = sidebarOpen ? "md:w-56 lg:w-70 2xl:w-85" : "md:w-8";
 
   return (
     <div
       className="flex h-svh max-h-svh w-dvw flex-col gap-3 overflow-hidden pl-4 pt-2"
       style={{ background: "var(--bg-0)" }}
     >
-      {/* Mobile guard — full-screen overlay on viewports below 768 px (md breakpoint).
-          Mobile "Request Desktop Site" typically gives ≥980 px so the overlay disappears. */}
-      <div
-        className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 md:hidden"
-        style={{ background: "var(--bg-0)" }}
-      >
-        <div className="flex items-center gap-2.5">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          <span className="text-xl font-bold text-text-primary">ChadWallet</span>
-        </div>
-        <div className="flex flex-col items-center gap-2 px-10 text-center">
-          <p className="text-sm font-semibold text-text-primary">Desktop view required</p>
-          <p className="text-xs leading-relaxed text-text-secondary">
-            ChadWallet is designed for desktop. Open this on a desktop browser, or enable &ldquo;Request Desktop Site&rdquo; in your mobile browser.
-          </p>
-        </div>
-      </div>
-
       {/* Header */}
       <div className="shrink-0 pr-4">
         <AppHeader />
@@ -93,8 +73,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           )}
         </div>
 
-        {/* Main content */}
-        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden pr-4">
+        {/* Main content — scrollable on mobile, fixed on desktop */}
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto md:overflow-hidden pr-4">
           {children}
         </main>
       </div>
