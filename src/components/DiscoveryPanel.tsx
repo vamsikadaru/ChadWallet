@@ -174,11 +174,11 @@ function TokensTab({ activeAddress }: { activeAddress?: string }) {
         <button
           key={f.key}
           onClick={() => setSubFilter(f.key)}
-          className="flex-none whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-colors"
+          className="flex-none whitespace-nowrap rounded-full px-3 py-1 text-xs transition-colors"
           style={
             subFilter === f.key
-              ? { background: "var(--accent-primary)", color: "#fff" }
-              : { background: "var(--bg-tertiary-solid)", color: "var(--text-secondary)" }
+              ? { background: "var(--accent-primary)", color: "#fff", fontWeight: 700 }
+              : { background: "var(--bg-tertiary-solid)", color: "var(--text-secondary)", fontWeight: 500 }
           }
         >
           {f.label}
@@ -346,14 +346,17 @@ export default function DiscoveryPanel({ onCollapse }: { onCollapse?: () => void
       <div className="flex shrink-0 items-center rounded-t-xl bg-bg-secondary p-2 pl-3">
         {/* Horizontally scrollable tabs — cursor-grab, overflow-x-auto */}
         <div className="relative min-w-0 flex-1">
-          <div className="no-scrollbar flex cursor-grab items-center gap-2 overflow-x-auto overflow-y-hidden text-sm font-medium">
+          <div className="no-scrollbar flex cursor-grab items-center gap-2 overflow-x-auto overflow-y-hidden text-sm">
             {TABS.map((t, i) => (
               <div key={t} className="flex items-center gap-2">
                 {i > 0 && <div className="h-4 w-px shrink-0 bg-bg-tertiary/40" aria-hidden="true" />}
                 <button
                   onClick={() => setTab(t)}
+                  style={{ fontWeight: tab === t ? 700 : 500 }}
                   className={`flex-none items-center justify-start gap-1 whitespace-nowrap text-left transition-colors ${
-                    tab === t ? "text-text-primary" : "text-text-secondary hover:text-text-primary"
+                    tab === t
+                      ? "text-text-primary"
+                      : "text-text-secondary hover:text-text-primary"
                   } ${t === "Alerts" ? "flex" : ""}`}
                 >
                   {t === "Alerts" && (

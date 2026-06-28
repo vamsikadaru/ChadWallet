@@ -310,10 +310,23 @@ export async function getOHLCV(
 ): Promise<Candle[]> {
   const win = OHLCV_WINDOWS[range] ?? OHLCV_WINDOWS["1W"];
   const { from, to: now } = window60(win.span);
+  return getOHLCVRange(address, win.interval, from, now);
+}
+
+/**
+ * Fetch OHLCV candles for an explicit [from, to] unix-second window. Used by
+ * the chart's "load earlier data" handler when the user pans past the left edge.
+ */
+export async function getOHLCVRange(
+  address: string,
+  interval: string,
+  from: number,
+  to: number
+): Promise<Candle[]> {
   try {
     const res = await fetch(
       `${apiBase()}/api/birdeye?type=ohlcv&address=${address}` +
-        `&interval=${win.interval}&time_from=${from}&time_to=${now}`,
+        `&interval=${interval}&time_from=${from}&time_to=${to}`,
       { cache: "no-store" }
     );
     const json = await res.json();
@@ -341,6 +354,11 @@ export async function getOHLCV(
   } catch {
     return [];
   }
+}
+
+/** Interval string for a given range label (for use with getOHLCVRange). */
+export function ohlcvInterval(range: string): string {
+  return (OHLCV_WINDOWS[range] ?? OHLCV_WINDOWS["1W"]).interval;
 }
 
 /** Synthesize candles from a price line (open = previous close). Volume 0. */
@@ -409,8 +427,7 @@ export async function getTokenHolders(
 ): Promise<TokenHolder[]> {
   try {
     const res = await fetch(
-      `${apiBase()}/api/birdeye?type=holder&address=${address}&offset=0&limit=20`,
-      { cache: "no-store" }
+      `${apiBase()}/api/birdeye?type=holder&address=${address}&offset=0&limit=20`
     );
     const json = await res.json();
     const items = json?.data?.items;
@@ -457,8 +474,7 @@ export async function getTokenTrades(address: string): Promise<LiveTrade[]> {
   try {
     const res = await fetch(
       `${apiBase()}/api/birdeye?type=trades&address=${address}` +
-        `&tx_type=swap&sort_type=desc&limit=40`,
-      { cache: "no-store" }
+        `&tx_type=swap&sort_type=desc&limit=40`
     );
     const json = await res.json();
     if (json?.fallback) return [];

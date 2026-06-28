@@ -45,23 +45,24 @@ export function usePortfolio(): PortfolioState {
         if (active) setLoading(false);
         return;
       }
-      const rpc = process.env.NEXT_PUBLIC_ALCHEMY_RPC_URL;
+      // Route RPC calls through our own server-side proxy (/api/rpc) so the
+      // browser never hits the public Solana endpoint directly (avoids CORS
+      // errors and browser-side rate-limits on the free public RPC).
+      const rpc = `${window.location.origin}/api/rpc`;
 
       let livePrice = solPrice;
-      if (rpc) {
-        try {
-          const { holdings: hs, netWorth: nw, solPrice: sp } =
-            await fetchHoldings(address, rpc);
-          if (active) {
-            setHoldings(hs);
-            setNetWorth(nw);
-            setChange24h(weightedChange24h(hs));
-            if (sp) setSolPrice(sp);
-          }
-          livePrice = sp || livePrice;
-        } catch (e) {
-          console.error("holdings fetch failed", e);
+      try {
+        const { holdings: hs, netWorth: nw, solPrice: sp } =
+          await fetchHoldings(address, rpc);
+        if (active) {
+          setHoldings(hs);
+          setNetWorth(nw);
+          setChange24h(weightedChange24h(hs));
+          if (sp) setSolPrice(sp);
         }
+        livePrice = sp || livePrice;
+      } catch {
+        // Portfolio data unavailable — app continues without it
       }
 
       try {

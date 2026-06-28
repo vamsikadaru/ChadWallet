@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, Loader2, Copy, Check, ExternalLink, AlertTriangle, Search, Star } from "lucide-react";
@@ -11,7 +11,7 @@ import SectionBoundary from "@/components/SectionBoundary";
 import TradePanel from "@/components/trade/TradePanel";
 import TokenStats from "@/components/trade/TokenStats";
 import { LiveTrades, HoldersList } from "@/components/trade/LiveFeed";
-import { getTokenOverview, getCandles, getTokenSecurity, type Candle } from "@/lib/birdeye";
+import { getTokenOverview, getCandles, getTokenSecurity, getOHLCVRange, ohlcvInterval, type Candle } from "@/lib/birdeye";
 import { isWatchlisted, toggleWatchlist } from "@/lib/watchlist";
 import { MOCK_TOKENS, mockChartSeries } from "@/lib/mock";
 import { formatPrice, compact, truncateAddress } from "@/lib/format";
@@ -27,6 +27,14 @@ type Range = (typeof RANGES)[number];
 type Tab = "swaps" | "holders" | "thesis";
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+const RANGE_SPANS: Record<string, number> = {
+  "1D": 86400,
+  "1W": 7 * 86400,
+  "1M": 30 * 86400,
+  "3M": 90 * 86400,
+  "1Y": 365 * 86400,
+};
 
 function riskLevel(sec: TokenSecurity): "safe" | "caution" | "risky" {
   if (sec.mintAuthority) return "risky";
@@ -57,6 +65,55 @@ export default function TradePage({
   );
   const [mySwapsOnly, setMySwapsOnly] = useState(false);
   const [friendsOnly, setFriendsOnly] = useState(false);
+  const [tabsHeight, setTabsHeight] = useState(220);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragRef          = useRef<{ startY: number; startH: number } | null>(null);
+  const loadingEarlierRef = useRef(false);
+
+  const startResize = useCallback((clientY: number) => {
+    dragRef.current = { startY: clientY, startH: tabsHeight };
+    setIsDragging(true);
+
+    const onMove = (y: number) => {
+      if (!dragRef.current) return;
+      const delta = dragRef.current.startY - y; // drag up = more chart = smaller tabs
+      setTabsHeight(Math.max(130, Math.min(520, dragRef.current.startH + delta)));
+    };
+    const onMouseMove = (e: MouseEvent) => onMove(e.clientY);
+    const onTouchMove = (e: TouchEvent) => { e.preventDefault(); onMove(e.touches[0].clientY); };
+    const onEnd = () => {
+      dragRef.current = null;
+      setIsDragging(false);
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onEnd);
+      document.removeEventListener("touchmove", onTouchMove);
+      document.removeEventListener("touchend", onEnd);
+    };
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onEnd);
+    document.addEventListener("touchmove", onTouchMove, { passive: false });
+    document.addEventListener("touchend", onEnd);
+  }, [tabsHeight]);
+
+  const handleLoadEarlier = useCallback(async (beforeTime: number) => {
+    if (loadingEarlierRef.current) return;
+    loadingEarlierRef.current = true;
+    const span     = RANGE_SPANS[range] ?? RANGE_SPANS["1W"];
+    const interval = ohlcvInterval(range);
+    const earlier  = await getOHLCVRange(address, interval, beforeTime - span, beforeTime - 1);
+    if (earlier.length) {
+      const key = `${address}-${range}`;
+      setCandleCache((prev) => {
+        const existing     = prev[key] ?? [];
+        const existingTimes = new Set(existing.map((c) => c.time));
+        const fresh        = earlier.filter((c) => !existingTimes.has(c.time));
+        if (!fresh.length) return prev;
+        const merged = [...fresh, ...existing].sort((a, b) => a.time - b.time);
+        return { ...prev, [key]: merged };
+      });
+    }
+    loadingEarlierRef.current = false;
+  }, [address, range]);
 
   useEffect(() => {
     localStorage.setItem("chadwallet:last-trade", `/trade/${address}`);
@@ -334,7 +391,7 @@ export default function TradePage({
           <div className="min-h-0 flex-1">
             <SectionBoundary label="chart">
               {candles.length ? (
-                <TradingChart candles={candles} scale={scale} height="fill" />
+                <TradingChart candles={candles} scale={scale} height="fill" onLoadEarlier={handleLoadEarlier} />
               ) : chartLoading ? (
                 <div className="flex h-full items-center justify-center gap-2 text-[13px] text-text-secondary">
                   <Loader2 size={15} className="animate-spin" /> Loading chart…
@@ -373,14 +430,27 @@ export default function TradePage({
           </div>
         </div>
 
-        {/* Bottom tabs: Swaps / Holders / Thesis (fixed ~220px) */}
-        <div className="flex h-[220px] shrink-0 flex-col border-t border-bg-tertiary">
+        {/* Resize handle */}
+        <div
+          className="group relative flex h-3 shrink-0 cursor-row-resize items-center justify-center"
+          onMouseDown={(e) => { e.preventDefault(); startResize(e.clientY); }}
+          onTouchStart={(e) => startResize(e.touches[0].clientY)}
+        >
+          <div className={`h-1 w-10 rounded-full transition-colors ${isDragging ? "bg-text-tertiary" : "bg-bg-tertiary group-hover:bg-text-tertiary"}`} />
+          <span className="pointer-events-none absolute left-1/2 top-full z-20 -translate-x-1/2 whitespace-nowrap rounded-md border border-bg-tertiary bg-bg-secondary px-2 py-1 text-[11px] text-text-secondary opacity-0 transition-opacity group-hover:opacity-100">
+            Resize chart
+          </span>
+        </div>
+
+        {/* Bottom tabs: Swaps / Holders / Thesis */}
+        <div className="flex shrink-0 flex-col border-t border-bg-tertiary" style={{ height: tabsHeight }}>
           <div className="flex shrink-0 items-center gap-4 border-b border-bg-tertiary px-4 py-2">
             {(["swaps", "holders", "thesis"] as const).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
-                className={`text-[13px] font-medium capitalize transition-colors ${
+                style={{ fontWeight: tab === t ? 700 : 500 }}
+                className={`text-[13px] capitalize transition-colors ${
                   tab === t
                     ? "text-text-primary"
                     : "text-text-secondary hover:text-text-primary"
@@ -407,7 +477,7 @@ export default function TradePage({
               {tab === "swaps" ? (
                 <LiveTrades address={display.address} />
               ) : tab === "holders" ? (
-                <HoldersList address={display.address} supply={display.supply} />
+                <HoldersList address={display.address} supply={display.supply} holderCount={display.holders} />
               ) : (
                 <div className="flex h-full items-center justify-center py-12 text-[13px] text-text-secondary">
                   No thesis posts yet

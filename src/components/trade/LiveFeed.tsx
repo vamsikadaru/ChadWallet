@@ -33,7 +33,7 @@ export function LiveTrades({ address }: { address?: string }) {
     }
 
     poll();
-    const id = setInterval(poll, 8000);
+    const id = setInterval(poll, 30_000);
     return () => { active = false; clearInterval(id); };
   }, [address]);
 
@@ -106,7 +106,15 @@ export function LiveTrades({ address }: { address?: string }) {
   );
 }
 
-export function HoldersList({ address, supply }: { address?: string; supply?: number }) {
+export function HoldersList({
+  address,
+  supply,
+  holderCount,
+}: {
+  address?: string;
+  supply?: number;
+  holderCount?: number;
+}) {
   const [holders, setHolders] = useState<Holder[]>([]);
   const [status, setStatus] = useState<"loading" | "live" | "empty">("loading");
 
@@ -139,8 +147,25 @@ export function HoldersList({ address, supply }: { address?: string; supply?: nu
 
   if (status === "empty") {
     return (
-      <div className="flex h-full items-center justify-center text-[12px] text-text-tertiary">
-        Holder data unavailable
+      <div className="flex h-full flex-col items-center justify-center gap-2 px-4 text-center">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="opacity-30">
+          <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="1.5" />
+          <circle cx="17" cy="9" r="3" stroke="currentColor" strokeWidth="1.5" />
+          <path d="M1 21c0-4 3.6-7 8-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          <path d="M23 21c0-3.3-2.7-6-6-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        </svg>
+        {holderCount != null && holderCount > 0 ? (
+          <>
+            <p className="text-[13px] font-semibold text-text-primary">
+              {holderCount.toLocaleString()} holders
+            </p>
+            <p className="text-[11px] text-text-tertiary">
+              Holder distribution data is temporarily unavailable
+            </p>
+          </>
+        ) : (
+          <p className="text-[12px] text-text-tertiary">Holder data unavailable</p>
+        )}
       </div>
     );
   }
