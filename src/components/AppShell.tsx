@@ -47,6 +47,26 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       className="flex h-svh max-h-svh w-dvw flex-col gap-3 overflow-hidden pl-4 pt-2"
       style={{ background: "var(--bg-0)" }}
     >
+      {/* Mobile-only gate — hidden once the browser is in desktop mode (≥768px virtual viewport) */}
+      <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-6 px-8 text-center md:hidden"
+        style={{ background: "var(--bg-0)" }}>
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-bg-tertiary"
+          style={{ background: "var(--bg-1)" }}>
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-text-secondary">
+            <rect x="5" y="2" width="14" height="20" rx="2" />
+            <line x1="12" y1="17" x2="12" y2="17.5" strokeLinecap="round" strokeWidth="2" />
+          </svg>
+        </div>
+        <div className="space-y-2">
+          <p className="text-[18px] font-semibold text-text-primary">Desktop only</p>
+          <p className="text-[13px] leading-relaxed text-text-secondary">
+            ChadWallet isn&apos;t optimised for mobile yet.
+            <br />
+            Open in a browser and enable <strong className="text-text-primary">Request Desktop Website</strong> to continue.
+          </p>
+        </div>
+      </div>
+
       {/* Header */}
       <div className="shrink-0 pr-4">
         <AppHeader />
