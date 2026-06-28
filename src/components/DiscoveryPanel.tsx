@@ -205,7 +205,7 @@ function TokensTab({ activeAddress }: { activeAddress?: string }) {
       {subFilterPills}
 
       {/* Token list — pb-16 on mobile leaves room above the BottomNav */}
-      <div className="no-scrollbar flex flex-1 flex-col gap-px overflow-y-scroll overflow-x-hidden px-2 pb-16 lg:pb-0">
+      <div className="no-scrollbar flex flex-1 flex-col gap-px overflow-y-scroll overflow-x-hidden px-2 pb-16 lg:pb-0 min-h-0">
         {isLoading
           ? Array.from({ length: 10 }).map((_, i) => (
               <div key={i} className="flex items-center gap-2.5 rounded-lg px-2 py-2">
@@ -274,7 +274,7 @@ function LeaderboardTab({ timeFilter }: { timeFilter: TimeFilter }) {
       </div>
 
       {/* Trader list — matches fomo: flex-1 overflow-y-scroll overflow-x-hidden px-2 */}
-      <div className="no-scrollbar flex flex-1 flex-col gap-px overflow-y-scroll overflow-x-hidden px-2">
+      <div className="no-scrollbar flex flex-1 flex-col gap-px overflow-y-scroll overflow-x-hidden px-2 min-h-0">
         {MOCK_TRADERS.map((t) => {
           const pnlStr = t.pnl.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
           const thumbCount = t.rank <= 3 ? 4 : t.rank <= 6 ? 3 : 2;

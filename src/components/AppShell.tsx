@@ -46,7 +46,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   if (!authenticated) return <Landing />;
 
   // Width class for the sidebar container (only used on desktop via lg: prefix)
-  const sidebarWidth = sidebarOpen || isMarkets ? "lg:w-70 2xl:lg:w-85" : "lg:w-8";
+  const sidebarWidth = sidebarOpen || isMarkets ? "lg:w-70 2xl:w-85" : "lg:w-8";
 
   return (
     <div
@@ -68,7 +68,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
          */}
         <div
           className={`shrink-0 flex-col min-h-0 overflow-hidden transition-[width] duration-150 ease-out ${sidebarWidth} ${
-            isMarkets ? "flex w-full" : "hidden lg:flex"
+            isMarkets ? "flex w-full pr-4" : "hidden lg:flex"
           }`}
         >
           {sidebarOpen || isMarkets ? (

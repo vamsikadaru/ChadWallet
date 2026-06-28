@@ -13,7 +13,7 @@ import TokenStats from "@/components/trade/TokenStats";
 import { LiveTrades, HoldersList } from "@/components/trade/LiveFeed";
 import { getTokenOverview, getCandles, getTokenSecurity, type Candle } from "@/lib/birdeye";
 import { isWatchlisted, toggleWatchlist } from "@/lib/watchlist";
-import { MOCK_TOKENS } from "@/lib/mock";
+import { MOCK_TOKENS, mockChartSeries } from "@/lib/mock";
 import { formatPrice, compact, truncateAddress } from "@/lib/format";
 import type { Token, TokenSecurity } from "@/lib/types";
 
@@ -25,6 +25,8 @@ const TradingChart = dynamic(() => import("@/components/TradingChart"), {
 const RANGES = ["1D", "1W", "1M", "3M", "1Y"] as const;
 type Range = (typeof RANGES)[number];
 type Tab = "swaps" | "holders" | "thesis";
+
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 function riskLevel(sec: TokenSecurity): "safe" | "caution" | "risky" {
   if (sec.mintAuthority) return "risky";
@@ -77,7 +79,13 @@ export default function TradePage({
 
   useEffect(() => {
     let active = true;
-    getTokenSecurity(address).then((s) => { if (active) setSecurity(s); });
+    async function run() {
+      await sleep(300);
+      if (!active) return;
+      const s = await getTokenSecurity(address);
+      if (active) setSecurity(s);
+    }
+    run();
     return () => { active = false; };
   }, [address]);
 
@@ -90,21 +98,26 @@ export default function TradePage({
     let active = true;
     let attempts = 0;
     const key = candleKey;
-    const tryFetch = () => {
-      getCandles(address, range).then((c) => {
-        if (!active) return;
-        if (c.length) {
-          setCandleCache((m) => ({ ...m, [key]: c }));
-          setEmptyKeys((s) => { if (!s.has(key)) return s; const n = new Set(s); n.delete(key); return n; });
-        } else if (attempts < 3) {
-          attempts += 1;
-          setTimeout(tryFetch, 1500);
-        } else {
-          setEmptyKeys((s) => new Set(s).add(key));
-        }
-      });
-    };
-    tryFetch();
+    async function run() {
+      await sleep(150);
+      if (!active) return;
+      const tryFetch = () => {
+        getCandles(address, range).then((c) => {
+          if (!active) return;
+          if (c.length) {
+            setCandleCache((m) => ({ ...m, [key]: c }));
+            setEmptyKeys((s) => { if (!s.has(key)) return s; const n = new Set(s); n.delete(key); return n; });
+          } else if (attempts < 3) {
+            attempts += 1;
+            setTimeout(tryFetch, 1500);
+          } else {
+            setEmptyKeys((s) => new Set(s).add(key));
+          }
+        });
+      };
+      tryFetch();
+    }
+    run();
     return () => { active = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address, range]);
@@ -326,11 +339,36 @@ export default function TradePage({
                 <div className="flex h-full items-center justify-center gap-2 text-[13px] text-text-secondary">
                   <Loader2 size={15} className="animate-spin" /> Loading chart…
                 </div>
-              ) : (
-                <div className="flex h-full items-center justify-center text-[13px] text-text-secondary">
-                  No chart data
-                </div>
-              )}
+              ) : (() => {
+                const seed = address.charCodeAt(0);
+                const priceMult = display.price > 0 ? display.price / 100 : 1;
+                const series = mockChartSeries(90, seed);
+                const mockCandles: Candle[] = series.map((p, i, arr) => {
+                  const prev = i > 0 ? arr[i - 1].value : p.value;
+                  const open = prev * priceMult;
+                  const close = p.value * priceMult;
+                  return {
+                    time: p.time,
+                    open,
+                    high: Math.max(open, close),
+                    low: Math.min(open, close),
+                    close,
+                    volume: 0,
+                  };
+                });
+                return (
+                  <div className="relative h-full w-full">
+                    <div className="opacity-40 h-full w-full">
+                      <TradingChart candles={mockCandles} scale={scale} height="fill" />
+                    </div>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="rounded-md border border-bg-tertiary bg-bg-secondary px-3 py-1.5 text-[12px] font-medium text-text-secondary">
+                        Preview — live data unavailable
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
             </SectionBoundary>
           </div>
         </div>
