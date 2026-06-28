@@ -174,11 +174,13 @@ export default function TradingChart({
     window.addEventListener("touchend",     onRelease);
     window.addEventListener("touchcancel",  onRelease);
 
-    const handleResize = () => {
+    // ResizeObserver catches both window resizes and layout-driven width
+    // changes (e.g. sidebar collapse/expand) that window.resize misses.
+    const roWidth = new ResizeObserver(() => {
       if (containerRef.current)
         chart.applyOptions({ width: containerRef.current.clientWidth });
-    };
-    window.addEventListener("resize", handleResize);
+    });
+    if (containerRef.current) roWidth.observe(containerRef.current);
 
     return () => {
       el.removeEventListener("mousedown",  onPress);
@@ -186,7 +188,7 @@ export default function TradingChart({
       window.removeEventListener("mouseup",     onRelease);
       window.removeEventListener("touchend",    onRelease);
       window.removeEventListener("touchcancel", onRelease);
-      window.removeEventListener("resize", handleResize);
+      roWidth.disconnect();
       chart.remove();
       chartRef.current = null;
     };

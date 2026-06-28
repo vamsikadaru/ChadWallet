@@ -372,7 +372,7 @@ export default function DiscoveryPanel({ onCollapse }: { onCollapse?: () => void
           <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-bg-secondary to-transparent" />
         </div>
         {/* Collapse button — desktop only */}
-        <div className="ml-auto hidden shrink-0 items-center gap-1 lg:flex">
+        <div className="ml-auto hidden shrink-0 items-center gap-1 md:flex">
           <button
             onClick={() => onCollapse?.()}
             className="p-1 text-text-tertiary transition-colors hover:text-text-primary focus:outline-none"
