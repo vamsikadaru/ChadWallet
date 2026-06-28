@@ -2,12 +2,10 @@
 
 import { useState } from "react";
 import { usePrivy } from "@privy-io/react-auth";
-import { usePathname } from "next/navigation";
 import Landing from "./Landing";
 import AppHeader from "./AppHeader";
 import DiscoveryPanel from "./DiscoveryPanel";
 import MajorsTicker from "./MajorsTicker";
-import BottomNav from "./BottomNav";
 import SearchCommand from "./SearchCommand";
 
 function BootSplash() {
@@ -36,23 +34,36 @@ function ExpandIcon() {
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const { ready, authenticated } = usePrivy();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const pathname = usePathname();
-
-  // On the home "/" route, mobile shows the DiscoveryPanel as a full-screen token list
-  // instead of the spinner/redirect that desktop sees.
-  const isMarkets = pathname === "/";
 
   if (!ready) return <BootSplash />;
   if (!authenticated) return <Landing />;
 
-  // Width class for the sidebar container (only used on desktop via lg: prefix)
-  const sidebarWidth = sidebarOpen || isMarkets ? "lg:w-70 2xl:w-85" : "lg:w-8";
+  const sidebarWidth = sidebarOpen ? "lg:w-70 2xl:w-85" : "lg:w-8";
 
   return (
     <div
       className="flex h-svh max-h-svh w-dvw flex-col gap-3 overflow-hidden pl-4 pt-2"
       style={{ background: "var(--bg-0)" }}
     >
+      {/* Mobile guard — full-screen overlay on viewports below 1024 px */}
+      <div
+        className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 lg:hidden"
+        style={{ background: "var(--bg-0)" }}
+      >
+        <div className="flex items-center gap-2.5">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          <span className="text-xl font-bold text-text-primary">ChadWallet</span>
+        </div>
+        <div className="flex flex-col items-center gap-2 px-10 text-center">
+          <p className="text-sm font-semibold text-text-primary">Desktop view required</p>
+          <p className="text-xs leading-relaxed text-text-secondary">
+            ChadWallet is designed for desktop. Open this on a desktop browser, or enable &ldquo;Request Desktop Site&rdquo; in your mobile browser.
+          </p>
+        </div>
+      </div>
+
       {/* Header */}
       <div className="shrink-0 pr-4">
         <AppHeader />
@@ -60,22 +71,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Body */}
       <div className="flex min-h-0 flex-1 gap-3 pb-2">
-        {/*
-         * Left panel:
-         * - Mobile "/" (Markets): flex, full-width — becomes the entire screen
-         * - Mobile "/trade/…": hidden
-         * - Desktop: lg:flex, width controlled by sidebarOpen state
-         */}
+        {/* Left panel — desktop only */}
         <div
-          className={`shrink-0 flex-col min-h-0 overflow-hidden transition-[width] duration-150 ease-out ${sidebarWidth} ${
-            isMarkets ? "flex w-full pr-4" : "hidden lg:flex"
-          }`}
+          className={`shrink-0 flex-col min-h-0 overflow-hidden transition-[width] duration-150 ease-out ${sidebarWidth} hidden lg:flex`}
         >
-          {sidebarOpen || isMarkets ? (
+          {sidebarOpen ? (
             <DiscoveryPanel onCollapse={() => setSidebarOpen(false)} />
           ) : (
-            /* Collapsed strip — desktop only */
-            <div className="hidden lg:flex flex-1 flex-col items-center rounded-xl border border-bg-tertiary py-3">
+            <div className="flex flex-1 flex-col items-center rounded-xl border border-bg-tertiary py-3">
               <button
                 onClick={() => setSidebarOpen(true)}
                 className="p-1 text-text-secondary transition-colors hover:text-text-primary"
@@ -87,19 +90,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           )}
         </div>
 
-        {/* Main content — hidden on mobile when on the Markets "/" route */}
-        <main
-          className={`min-h-0 min-w-0 flex-1 flex-col overflow-hidden pr-4 ${
-            isMarkets ? "hidden lg:flex" : "flex"
-          }`}
-        >
+        {/* Main content */}
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden pr-4">
           {children}
         </main>
       </div>
 
       <MajorsTicker />
       <SearchCommand />
-      <BottomNav />
     </div>
   );
 }
