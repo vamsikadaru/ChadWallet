@@ -38,16 +38,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   if (!ready) return <BootSplash />;
   if (!authenticated) return <Landing />;
 
-  const sidebarWidth = sidebarOpen ? "lg:w-70 2xl:w-85" : "lg:w-8";
+  const sidebarWidth = sidebarOpen ? "md:w-64 lg:w-70 2xl:w-85" : "md:w-8";
 
   return (
     <div
       className="flex h-svh max-h-svh w-dvw flex-col gap-3 overflow-hidden pl-4 pt-2"
       style={{ background: "var(--bg-0)" }}
     >
-      {/* Mobile guard — full-screen overlay on viewports below 1024 px */}
+      {/* Mobile guard — full-screen overlay on viewports below 768 px (md breakpoint).
+          Mobile "Request Desktop Site" typically gives ≥980 px so the overlay disappears. */}
       <div
-        className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 lg:hidden"
+        className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 md:hidden"
         style={{ background: "var(--bg-0)" }}
       >
         <div className="flex items-center gap-2.5">
@@ -73,7 +74,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <div className="flex min-h-0 flex-1 gap-3 pb-2">
         {/* Left panel — desktop only */}
         <div
-          className={`shrink-0 flex-col min-h-0 overflow-hidden transition-[width] duration-150 ease-out ${sidebarWidth} hidden lg:flex`}
+          className={`shrink-0 flex-col min-h-0 overflow-hidden transition-[width] duration-150 ease-out ${sidebarWidth} hidden md:flex`}
         >
           {sidebarOpen ? (
             <DiscoveryPanel onCollapse={() => setSidebarOpen(false)} />

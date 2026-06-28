@@ -451,8 +451,8 @@ export default function TradePage({
         </div>
       </aside>
 
-      {/* ── MOBILE: floating Trade button + bottom drawer ── */}
-      <div className="fixed inset-x-0 bottom-[72px] z-30 px-4 lg:hidden">
+      {/* ── Narrow-viewport: floating Trade button (shown below lg, where right panel is hidden) ── */}
+      <div className="fixed inset-x-0 bottom-4 z-30 px-4 lg:hidden">
         <button
           onClick={() => setDrawerOpen(true)}
           className="btn-buy flex h-[52px] w-full items-center justify-center rounded-[var(--radius-md)] text-[15px] font-bold text-white shadow-lg"
