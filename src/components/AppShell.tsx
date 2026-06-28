@@ -38,7 +38,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   if (!ready) return <BootSplash />;
   if (!authenticated) return <Landing />;
 
-  const sidebarWidth = sidebarOpen ? "lg:w-70 2xl:w-85" : "lg:w-8";
+  // md (≥768 px) = mobile "Request Desktop Site" — narrower sidebar
+  // lg (≥1024 px) = real desktop — full-width sidebar
+  const sidebarWidth = sidebarOpen ? "md:w-48 lg:w-70 2xl:w-85" : "md:w-8";
 
   return (
     <div
@@ -74,7 +76,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <div className="flex min-h-0 flex-1 gap-3 pb-2">
         {/* Left panel — desktop only */}
         <div
-          className={`shrink-0 flex-col min-h-0 overflow-hidden transition-[width] duration-150 ease-out ${sidebarWidth} hidden lg:flex`}
+          className={`shrink-0 flex-col min-h-0 overflow-hidden transition-[width] duration-150 ease-out ${sidebarWidth} hidden md:flex`}
         >
           {sidebarOpen ? (
             <DiscoveryPanel onCollapse={() => setSidebarOpen(false)} />

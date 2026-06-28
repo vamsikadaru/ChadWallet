@@ -250,10 +250,10 @@ export default function TradePage({
           {/* Separator */}
           <div className="mx-4 h-8 w-px shrink-0 bg-bg-tertiary" />
 
-          {/* Stats — fill all remaining space, evenly distributed */}
+          {/* Stats — first 3 always visible, last 3 only at lg+ */}
           <div className="flex flex-1 items-center justify-between min-w-0">
-            {TOKEN_STATS.map((s) => (
-              <div key={s.label} className="flex flex-col gap-0.5">
+            {TOKEN_STATS.map((s, i) => (
+              <div key={s.label} className={`flex-col gap-0.5 ${i < 3 ? "flex" : "hidden lg:flex"}`}>
                 <p className="text-[10px] font-medium text-text-secondary leading-none whitespace-nowrap">
                   {s.label}
                 </p>
