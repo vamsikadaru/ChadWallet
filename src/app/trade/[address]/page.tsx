@@ -67,6 +67,7 @@ export default function TradePage({
   const [friendsOnly, setFriendsOnly] = useState(false);
   const [tabsHeight, setTabsHeight] = useState(220);
   const [isDragging, setIsDragging] = useState(false);
+  const [isLg, setIsLg] = useState(false);
   const dragRef          = useRef<{ startY: number; startH: number } | null>(null);
   const loadingEarlierRef = useRef(false);
 
@@ -114,6 +115,14 @@ export default function TradePage({
     }
     loadingEarlierRef.current = false;
   }, [address, range]);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const handler = () => setIsLg(mq.matches);
+    handler();
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
 
   useEffect(() => {
     localStorage.setItem("chadwallet:last-trade", `/trade/${address}`);
@@ -329,7 +338,7 @@ export default function TradePage({
         </div>
 
         {/* Chart area */}
-        <div className="flex flex-col md:min-h-0 md:flex-1">
+        <div className="flex flex-col md:flex-none lg:min-h-0 lg:flex-1">
           {/* Single unified controls bar — scrollable so it never clips on narrow viewports */}
           <div className="no-scrollbar flex shrink-0 items-center gap-2 overflow-x-auto border-b border-bg-tertiary px-3 py-1.5">
             {/* Range picker */}
@@ -387,8 +396,8 @@ export default function TradePage({
             ))}
           </div>
 
-          {/* Mobile: square. md: capped (mobile-in-desktop-mode has 2000px+ virtual height). lg+: fill. */}
-          <div className="aspect-square w-full shrink-0 md:aspect-auto md:min-h-0 md:flex-1 md:max-h-[500px] lg:max-h-none">
+          {/* Mobile: square. md: fixed 500px (mobile-in-desktop-mode has 2000px+ virtual height). lg+: fill. */}
+          <div className="aspect-square w-full shrink-0 md:aspect-auto md:h-[500px] md:flex-none lg:h-auto lg:min-h-0 lg:flex-1">
             <SectionBoundary label="chart">
               {candles.length ? (
                 <TradingChart candles={candles} scale={scale} height="fill" onLoadEarlier={handleLoadEarlier} />
@@ -430,9 +439,9 @@ export default function TradePage({
           </div>
         </div>
 
-        {/* Resize handle — desktop only */}
+        {/* Resize handle — lg+ only (tabs are flex-1 at md so resize doesn't apply) */}
         <div
-          className="group relative hidden h-3 shrink-0 cursor-row-resize items-center justify-center md:flex"
+          className="group relative hidden h-3 shrink-0 cursor-row-resize items-center justify-center lg:flex"
           onMouseDown={(e) => { e.preventDefault(); startResize(e.clientY); }}
           onTouchStart={(e) => startResize(e.touches[0].clientY)}
         >
@@ -442,8 +451,8 @@ export default function TradePage({
           </span>
         </div>
 
-        {/* Bottom tabs — fixed-height + inner scroll on desktop; natural height on mobile */}
-        <div className="flex flex-col border-t border-bg-tertiary md:shrink-0" style={{ height: tabsHeight }}>
+        {/* Bottom tabs — fills leftover space at md (no gap below chart); fixed-height + inner scroll at lg+ */}
+        <div className="flex flex-col border-t border-bg-tertiary md:flex-1 lg:flex-none" style={isLg ? { height: tabsHeight } : undefined}>
           <div className="flex shrink-0 items-center gap-4 border-b border-bg-tertiary px-4 py-2">
             {(["swaps", "holders", "thesis"] as const).map((t) => (
               <button

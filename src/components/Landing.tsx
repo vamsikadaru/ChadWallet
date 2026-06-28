@@ -347,7 +347,7 @@ export default function Landing() {
 
           {/* ── Phone — floats bottom-right ── */}
           <div
-            className="absolute bottom-[4%] right-[-2%] z-10 w-[22%] desktop:w-[20%]"
+            className="absolute bottom-[4%] right-[-2%] z-10 w-[30%] desktop:w-[20%]"
             style={{ animation: "phone-float 5s ease-in-out infinite" }}
           >
             {/* Glow */}
@@ -355,21 +355,30 @@ export default function Landing() {
               className="pointer-events-none absolute inset-0 blur-[30px] scale-75"
               style={{ background: "radial-gradient(ellipse at 50% 60%, rgba(153,69,255,0.5) 0%, transparent 75%)" }}
             />
-            {/* Phone bezel */}
-            <div className="relative rounded-[36px] border border-white/10 bg-[#1a1a24] p-[8px] shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_32px_64px_-8px_rgba(0,0,0,0.9)]">
-              {/* Dynamic island */}
+            {/* Phone bezel — radius scales with element width to stay phone-shaped */}
+            <div
+              className="relative border border-white/10 bg-[#1a1a24] p-[8px] shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_32px_64px_-8px_rgba(0,0,0,0.9)]"
+              style={{ borderRadius: "clamp(16px, 15%, 36px)" }}
+            >
+              {/* Dynamic island — scales with phone width */}
               <div className="absolute left-1/2 top-[10px] z-10 -translate-x-1/2">
-                <div className="h-[14px] w-[52px] rounded-full bg-[#0e0e16]" />
+                <div
+                  className="rounded-full bg-[#0e0e16]"
+                  style={{ height: "clamp(8px, 1.4%, 14px)", width: "clamp(32px, 42%, 52px)" }}
+                />
               </div>
               {/* Screen */}
-              <div className="relative overflow-hidden rounded-[28px] bg-[#09090f]" style={{ aspectRatio: "9/19.5" }}>
+              <div
+                className="relative overflow-hidden bg-[#09090f]"
+                style={{ aspectRatio: "9/19.5", borderRadius: "clamp(10px, 11%, 28px)" }}
+              >
                 <Image
                   src="/images/screenshot-phone.png"
                   alt="ChadWallet mobile app"
                   width={1080}
                   height={2404}
                   className="h-full w-full object-cover object-top"
-                  sizes="(max-width: 800px) 25vw, 220px"
+                  sizes="(max-width: 800px) 30vw, 220px"
                 />
               </div>
             </div>
