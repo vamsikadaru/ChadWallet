@@ -12,7 +12,7 @@ A premium, non-custodial Solana trading terminal. Sign in with Google, Apple, or
 - **Swap any token** — buy/sell SPL tokens through [Jupiter v6](https://station.jup.ag/docs/apis/swap-api) with slippage control and price-impact estimates. Completed trades are logged to Supabase.
 - **Live portfolio** — net worth, holdings, and value-weighted 24h change computed from your real on-chain balances, priced with live BirdEye quotes.
 - **Profile & social** — a generated handle/avatar, editable name + bio, following/followers, and a "Follow top traders" rail backed by [Supabase](https://supabase.com).
-- **Deposit & withdraw** — receive SOL via a QR code, or withdraw SOL to any address (10/25/50/Max) signed by the embedded wallet. Both screens have an X button to dismiss and return to the previous page.
+- **Deposit & withdraw** — receive SOL via a QR code, or withdraw SOL to any address (10/25/50/Max) signed by the embedded wallet.
 - **Token search** — full Solana token search via BirdEye (`/` shortcut to focus), not limited to trending tokens.
 - **Security** — Privy JWT authentication (`jose` + JWKS) enforced on all mutating API routes (trades, profile edits, follow/unfollow). BirdEye API key is server-side only — the `/api/birdeye` proxy is the only path to market data. Alchemy RPC key is domain-allowlisted in the Alchemy dashboard.
 - **Extras** — a live BTC/SOL/JUP majors ticker and a "blur balances" privacy toggle.
